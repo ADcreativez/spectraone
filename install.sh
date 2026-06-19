@@ -104,7 +104,7 @@ After=network.target
 [Service]
 User=${USER_NAME}
 WorkingDirectory=${APP_DIR}
-ExecStart=${APP_DIR}/venv/bin/python ${APP_DIR}/run.py
+ExecStart=${APP_DIR}/venv/bin/python ${APP_DIR}/app-spectraone.py
 Restart=always
 
 [Install]
@@ -129,7 +129,7 @@ echo -e "${GREEN}[✓] SpectraOne installation completed successfully!${NC}"
 echo -e "${BLUE}==================================================${NC}"
 echo -e "To start the application manually:"
 echo -e "  1. Activate venv:   ${YELLOW}source venv/bin/activate${NC}"
-echo -e "  2. Run the server:  ${YELLOW}python run.py${NC}"
-echo -e "Or simply run:        ${YELLOW}./venv/bin/python run.py${NC}"
+echo -e "  2. Run the server:  ${YELLOW}python app-spectraone.py${NC}"
+echo -e "Or simply run:        ${YELLOW}./venv/bin/python app-spectraone.py${NC}"
 echo -e "The application is listening on port 9000 and accessible from any IP."
 echo -e "${BLUE}==================================================${NC}"
