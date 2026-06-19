@@ -1,0 +1,227 @@
+
+                            ╔══════════════════════════════════╗
+                            ║        linPEAS v4.3.1            ║
+                            ║   Linux Privilege Escalation     ║
+                            ║         Awesome Script           ║
+                            ╚══════════════════════════════════╝
+
+ Starting linpeas. Caching Writable Folders...
+
+════════════════════════════════════╣ System Information ╠════════════════════════════════════
+                              OS: Linux version 5.4.0-42-generic (buildd@lgw01-amd64-038) (gcc version 9.3.0 (Ubuntu 9.3.0-10ubuntu2)) #46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020
+                              Hostname: prod-web-01
+                              Kernel: 5.4.0-42-generic
+                              Distribution: Ubuntu 20.04.1 LTS
+                              Architecture: x86_64
+                              Date: Wed Jun 11 10:00:00 UTC 2026
+
+════════════════════════════════════╣ CVEs Check ╠════════════════════════════════════
+
+╔══════════╣ Executing Linux Exploit Suggester
+[+] [CVE-2021-4034] PwnKit - Polkit pkexec
+   Details: https://www.qualys.com/2022/01/25/cve-2021-4034/pwnkit.txt
+   Exposure: Highly Probable
+   Tags: ubuntu=10.04{noble}
+   Download URL: https://codeload.github.com/berdav/CVE-2021-4034/zip/main
+
+[+] [CVE-2022-0847] DirtyPipe
+   Details: https://dirtypipe.cm4all.com/
+   Exposure: Probable
+   Tags: ubuntu=20.04
+   Download URL: https://haxx.in/files/dirtypipez.c
+
+[+] [CVE-2021-3156] sudo - Baron Samedit
+   Details: https://www.qualys.com/2021/01/26/cve-2021-3156/baron-samedit-heap-based-overflow-sudo.txt
+   Exposure: Probable
+   Tags: ubuntu=18.04|20.04
+   Download URL: https://codeload.github.com/blasty/CVE-2021-3156/zip/main
+
+[+] [CVE-2022-2588] dirty_cred - Use-After-Free in cls_route
+   Details: https://github.com/Markakd/CVE-2022-2588
+   Exposure: Less Probable
+   Tags: ubuntu=20.04{5.4.0-}
+
+════════════════════════════════════╣ Interesting Files ╠════════════════════════════════════
+
+╔══════════╣ SUID - Check easy privesc, exploits andடocker breakout
+-rwsr-xr-x 1 root root 163K Jan 19  2021 /usr/bin/sudo
+-rwsr-xr-x 1 root root  68K Jul 14  2021 /usr/bin/passwd
+-rwsr-xr-x 1 root root  44K Jul 14  2021 /usr/bin/newgrp
+-rwsr-xr-x 1 root root  84K Jul 14  2021 /usr/bin/chfn
+-rwsr-xr-x 1 root root  52K Jul 14  2021 /usr/bin/chsh
+-rwsr-xr-x 1 root root  39K Mar  7  2020 /usr/bin/fusermount
+-rwsr-xr-x 1 root root  67K Jul 14  2021 /usr/bin/gpasswd
+-rwsr-xr-x 1 root root 473K May 29  2021 /usr/bin/find
+-rwsr-xr-x 1 root root  27K Jan 29  2020 /usr/bin/pkexec
+-rwsr-xr-x 1 root root  87K May 28  2021 /usr/bin/screen-4.5.0
+-rwsr-xr-x 1 root root 140K Nov 23  2020 /usr/bin/python3.8
+-rwsr-sr-x 1 root root  15K Jul 17  2021 /usr/lib/xorg/Xorg.wrap
+-rwsr-xr-x 1 root root  23K Mar  4  2019 /usr/lib/policykit-1/polkit-agent-helper-1
+-rwsr-xr-- 1 root messagebus  51K Jun 11  2020 /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+-rwsr-xr-x 1 root root 427K Apr  1  2020 /usr/lib/openssh/ssh-keysign
+-rwsr-xr-x 1 root root  15K Jul  8  2019 /usr/lib/eject/dmcrypt-get-device
+-rwsr-xr-x 1 root root 113K Jun 22  2021 /usr/sbin/mount.nfs
+-rwsr-xr-x 1 root root  39K Mar 22  2019 /snap/core/10185/usr/bin/env
+
+╔══════════╣ SGID
+-rwxr-sr-x 1 root shadow  39K Mar 22  2019 /usr/bin/expiry
+-rwxr-sr-x 1 root crontab  43K Feb  2  2020 /usr/bin/crontab
+-rwxr-sr-x 1 root shadow  83K Jul 14  2021 /usr/bin/chage
+
+╔══════════╣ Files with capabilities (limited to 50)
+/usr/bin/python3.8 = cap_setuid+ep
+/usr/bin/ping = cap_net_raw+ep
+/usr/bin/traceroute6.iputils = cap_net_raw+ep
+/usr/bin/mtr-packet = cap_net_raw+ep
+/usr/sbin/tcpdump = cap_net_admin,cap_net_raw+ep
+
+════════════════════════════════════╣ Processes, Crons, Timers & Services ╠════════════════════════════════════
+
+╔══════════╣ Cron jobs
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+* * * * * root /opt/scripts/backup.sh
+*/5 * * * * root /usr/local/bin/health_check.py
+17 * * * * root cd / && run-parts --report /etc/cron.hourly
+25 6 * * * root test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
+47 6 * * 7 root test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )
+52 6 1 * * root test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )
+
+╔══════════╣ Writable cron scripts
+-rwxrwxrwx 1 root root 245 Jun  1  2021 /opt/scripts/backup.sh
+
+╔══════════╣ Systemd timers
+NEXT                         LEFT          LAST                         PASSED       UNIT                         ACTIVATES
+Wed 2026-06-11 10:39:00 UTC  38min left    Wed 2026-06-11 10:00:00 UTC  38s ago      apt-daily.timer              apt-daily.service
+Wed 2026-06-11 12:00:00 UTC  1h 59min left Tue 2026-06-10 12:00:02 UTC  22h ago      logrotate.timer              logrotate.service
+
+╔══════════╣ Services
+● ssh.service - OpenBSD Secure Shell server
+     Active: active (running)
+● apache2.service - The Apache HTTP Server
+     Active: active (running)
+● mysql.service - MySQL Community Server
+     Active: active (running)
+● docker.service - Docker Application Container Engine
+     Active: active (running)
+
+════════════════════════════════════╣ Network ╠════════════════════════════════════
+
+╔══════════╣ Listening Ports (Interfaces)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:443             0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:3306            0.0.0.0:*               LISTEN
+tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN
+tcp6       0      0 :::9200                 :::*                    LISTEN
+tcp6       0      0 :::5601                 :::*                    LISTEN
+
+╔══════════╣ Active TCP/UDP connections
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 10.0.0.5:22             192.168.1.100:54322     ESTABLISHED
+tcp        0      0 10.0.0.5:80             192.168.1.200:42533     ESTABLISHED
+
+════════════════════════════════════╣ Users ╠════════════════════════════════════
+
+╔══════════╣ My user
+uid=1000(webadmin) gid=1000(webadmin) groups=1000(webadmin),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),108(lxd),999(docker)
+
+╔══════════╣ Sudo -l
+User webadmin may run the following commands on prod-web-01:
+    (ALL) NOPASSWD: /usr/bin/find
+    (root) NOPASSWD: /usr/bin/python3
+    (ALL : ALL) NOPASSWD: /usr/bin/env
+
+╔══════════╣ /etc/passwd users with console
+root:x:0:0:root:/root:/bin/bash
+webadmin:x:1000:1000:Web Admin:/home/webadmin:/bin/bash
+deploy:x:1001:1001:Deploy User:/home/deploy:/bin/bash
+mysql:x:27:27:MySQL Server:/var/lib/mysql:/bin/bash
+backup:x:1002:1002:Backup User:/home/backup:/bin/sh
+
+╔══════════╣ /etc/shadow readable?
+YES - /etc/shadow is readable!
+root:$6$xyz123$hashhashhash:18800:0:99999:7:::
+webadmin:$6$abc456$anotherhash:18900:0:99999:7:::
+
+════════════════════════════════════╣ Credentials & Secrets ╠════════════════════════════════════
+
+╔══════════╣ Searching passwords in config files
+/etc/mysql/debian.cnf: password = s3cr3t_db_p4ss!
+/var/www/html/wp-config.php: define('DB_PASSWORD', 'W0rdPr3ss_Passw0rd!');
+/opt/scripts/backup.sh: MYSQL_PWD="backup_password_123"
+/home/webadmin/.env: API_KEY=sk-live-abc123def456ghi789
+
+╔══════════╣ SSH keys in common locations
+/home/webadmin/.ssh/id_rsa - PRIVATE KEY FOUND (unprotected!)
+   Permissions: -rw-rw-rw- 1 webadmin webadmin 1679 Jun  1  2021
+/root/.ssh/authorized_keys
+/home/deploy/.ssh/authorized_keys
+
+╔══════════╣ Files with passwords in filenames
+/var/log/installer/cdebconf/passwords.dat
+/home/webadmin/passwords.txt
+/opt/credentials/db_passwords.csv
+
+╔══════════╣ AWS/Cloud credentials
+/home/webadmin/.aws/credentials - AWS CREDENTIALS FOUND
+[default]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+════════════════════════════════════╣ Software Information ╠════════════════════════════════════
+
+╔══════════╣ Useful software
+/usr/bin/curl
+/usr/bin/wget
+/usr/bin/python3.8
+/usr/bin/gcc
+/usr/bin/g++
+/usr/bin/make
+/usr/bin/nmap
+/usr/bin/nc
+/usr/bin/socat
+/usr/bin/gdb
+
+╔══════════╣ Installed software versions
+apache2: 2.4.41
+mysql: 5.7.31
+php: 7.4.3
+python3: 3.8.10
+docker: 20.10.7
+openssh: 8.2p1
+
+════════════════════════════════════╣ Container ╠════════════════════════════════════
+
+╔══════════╣ Container related
+═╣ Am I Containered?
+  No
+
+═╣ Container Capabilities
+  Current proc caps: 0x00000000a80425fb=cap_chown,cap_dac_override,cap_fowner,cap_fsetid,cap_kill,cap_setgid,cap_setuid,cap_setpcap,cap_net_bind_service,cap_net_raw,cap_sys_chroot,cap_mknod,cap_audit_write,cap_setfcap
+
+╔══════════╣ Docker
+═╣ User in Docker group
+  YES - user 'webadmin' is in the docker group!
+  
+═╣ Docker socket writable
+  /var/run/docker.sock exists and IS writable
+
+╔══════════╣ LXD/LXC
+═╣ User in lxd group  
+  YES - user 'webadmin' is in the lxd group!
+
+════════════════════════════════════╣ Writable Files & Dirs ╠════════════════════════════════════
+
+╔══════════╣ Interesting writable files owned by me or writable by everyone
+/etc/crontab
+/opt/scripts/backup.sh
+/var/www/html/wp-config.php
+/usr/local/bin/health_check.py
+/tmp/
+
+╔══════════╣ Interesting GROUP://writable files (not in Home)
+/var/log/apache2/
+/var/log/mysql/
+/etc/apache2/apache2.conf

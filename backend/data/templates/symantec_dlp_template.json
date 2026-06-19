@@ -1,0 +1,93 @@
+{
+    "_template_info": {
+        "brand": "Symantec DLP",
+        "version": "1.0",
+        "description": "Template untuk Symantec Data Loss Prevention policy assessment.",
+        "instructions": [
+            "1. Salin file ini dan rename sesuai environment Anda (misal: symantec_dlp_prod.json)",
+            "2. Isi field sesuai konfigurasi DLP Anda (policies, rules, response_rules)",
+            "3. Upload file JSON ini via modul Symantec DLP di MantaInsight"
+        ]
+    },
+    "policies": [
+        {
+            "name": "Credit Card Data Protection",
+            "description": "Protect PCI-DSS relevant data",
+            "enabled": true,
+            "data_types": ["Credit Card Numbers"],
+            "channels": ["network", "email"],
+            "severity": "Low"
+        },
+        {
+            "name": "Employee PII Policy",
+            "description": "Protect employee personal data",
+            "enabled": true,
+            "data_types": ["Personal Identifiable Information (PII)", "Employee Records"],
+            "channels": ["endpoint"],
+            "severity": "Medium"
+        },
+        {
+            "name": "Source Code Protection",
+            "description": "Protect intellectual property - source code",
+            "enabled": true,
+            "data_types": ["Source Code", "Intellectual Property"],
+            "channels": ["endpoint", "network"],
+            "severity": "High"
+        },
+        {
+            "name": "Confidential Document Policy",
+            "description": "Catch confidential document leakage",
+            "enabled": true,
+            "data_types": ["Confidential Documents"],
+            "channels": ["network"],
+            "severity": "Medium"
+        }
+    ],
+    "rules": [
+        {
+            "name": "Credit Card Block Rule",
+            "enabled": true,
+            "match_patterns": ["luhn_algorithm", "card_number_16_digit"],
+            "severity": "High",
+            "response_rule_ids": ["resp_001"]
+        },
+        {
+            "name": "Credit Card Audit Rule",
+            "enabled": true,
+            "match_patterns": ["luhn_algorithm", "card_number_16_digit"],
+            "severity": "Medium",
+            "response_rule_ids": []
+        },
+        {
+            "name": "Email PII Detect",
+            "enabled": true,
+            "match_patterns": ["email_pattern", "name_pattern"],
+            "severity": "Low",
+            "response_rule_ids": ["resp_002"]
+        },
+        {
+            "name": "USB Transfer Detect",
+            "enabled": true,
+            "match_patterns": ["email_pattern"],
+            "severity": "Low",
+            "response_rule_ids": []
+        }
+    ],
+    "response_rules": [
+        {
+            "id": "resp_001",
+            "name": "Block and Notify Admin",
+            "actions": [
+                {"type": "block", "target": "transfer"},
+                {"type": "notify_admin", "email": "security@company.com"}
+            ]
+        },
+        {
+            "id": "resp_002",
+            "name": "Audit Log Only",
+            "actions": [
+                {"type": "log", "destination": "siem"}
+            ]
+        }
+    ]
+}

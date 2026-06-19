@@ -1,0 +1,106 @@
+{
+    "_template_info": {
+        "brand": "BeyondTrust PAM",
+        "version": "1.0",
+        "description": "Template untuk BeyondTrust Privilege Management assessment. Isi sesuai dengan konfigurasi PAM Anda.",
+        "instructions": [
+            "1. Salin file ini dan rename menjadi nama environment Anda (misal: beyondtrust_prod.json)",
+            "2. Isi setiap field sesuai konfigurasi BeyondTrust Anda",
+            "3. Upload file JSON ini ke MantaInsight via modul BeyondTrust PAM"
+        ]
+    },
+    "accounts": [
+        {
+            "username": "svc_dbadmin",
+            "display_name": "Database Admin Service Account",
+            "type": "service_account",
+            "roles": ["DBA_Full_Access", "Server_Admin", "Backup_Operator", "Network_Admin"],
+            "is_local_admin": true,
+            "business_justification": "",
+            "owner_is_active": true,
+            "last_used_days_ago": 5
+        },
+        {
+            "username": "john.doe",
+            "display_name": "John Doe",
+            "type": "user_account",
+            "roles": ["Helpdesk_Tier2", "AD_Reset"],
+            "is_local_admin": false,
+            "business_justification": "Helpdesk escalation support",
+            "owner_is_active": false,
+            "last_used_days_ago": 120
+        },
+        {
+            "username": "svc_backup",
+            "display_name": "Backup Service Account",
+            "type": "service_account",
+            "roles": ["Backup_Operator"],
+            "is_local_admin": false,
+            "business_justification": "Automated backup jobs",
+            "owner_is_active": true,
+            "last_used_days_ago": 1
+        }
+    ],
+    "policies": [
+        {
+            "name": "Default Server Access Policy",
+            "description": "Standard policy for server privileged access",
+            "password_rotation_days": 0,
+            "min_password_length": 8,
+            "requires_complexity": false,
+            "session_recording_enabled": false,
+            "max_session_minutes": 0,
+            "applies_to": ["Windows Servers", "Linux Servers"]
+        },
+        {
+            "name": "Domain Controller Policy",
+            "description": "Policy for domain controller access",
+            "password_rotation_days": 30,
+            "min_password_length": 16,
+            "requires_complexity": true,
+            "session_recording_enabled": true,
+            "max_session_minutes": 60,
+            "applies_to": ["Domain Controllers"]
+        },
+        {
+            "name": "Network Device Policy",
+            "description": "Policy for network infrastructure devices",
+            "password_rotation_days": 180,
+            "min_password_length": 10,
+            "requires_complexity": false,
+            "session_recording_enabled": false,
+            "max_session_minutes": 240,
+            "applies_to": ["Routers", "Switches", "Firewalls"]
+        }
+    ],
+    "systems": [
+        {
+            "hostname": "DC-PROD-01",
+            "ip_address": "192.168.1.10",
+            "type": "domain_controller",
+            "os": "Windows Server 2019",
+            "password_vaulted": true
+        },
+        {
+            "hostname": "APP-PROD-01",
+            "ip_address": "192.168.1.20",
+            "type": "application_server",
+            "os": "Windows Server 2022",
+            "password_vaulted": false
+        },
+        {
+            "hostname": "DB-PROD-01",
+            "ip_address": "192.168.1.30",
+            "type": "critical_server",
+            "os": "Linux RHEL 8",
+            "password_vaulted": false
+        },
+        {
+            "hostname": "FW-CORE-01",
+            "ip_address": "10.0.0.1",
+            "type": "firewall",
+            "os": "FortiOS 7.4",
+            "password_vaulted": true
+        }
+    ]
+}

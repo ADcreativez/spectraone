@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectraOne - Configuration</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Google Fonts Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js" defer></script>
+    <style>
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .config-page-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 48px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .config-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            width: 100%;
+        }
+        .config-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent-indigo);
+        }
+        
+        .overview-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+        
+        @media (max-width: 1024px) {
+            .overview-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="config-page-container">
+        <header class="config-header">
+            <div class="config-header-left">
+                <div style="background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple)); border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; height: 56px; width: 56px; box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);">
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                <div>
+                    <h1 style="font-family: var(--font-header); font-size: 28px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.5px;">System Configuration</h1>
+                    <p style="color: var(--text-secondary); font-size: 14px;">Manage users, roles, and engine parameters</p>
+                </div>
+            </div>
+            <div>
+                <button class="nav-btn" id="btn-back-hub" title="Back to Hub">
+                    <i class="fa-solid fa-arrow-left"></i> Back to Hub
+                </button>
+            </div>
+        </header>
+
+        <section class="view-panel" style="display:block; animation:none; padding:0;">
+            <div class="overview-grid">
+                <div class="overview-col-main">
+                    <div class="card panel-card">
+                        <div class="panel-header">
+                            <h4>User Access & Roles Controls</h4>
+                            <p>Configure user permission credentials and authorization profiles.</p>
+                        </div>
+                        <div class="panel-body table-responsive">
+                            <table class="report-table" id="table-users">
+                                <thead>
+                                    <tr>
+                                        <th>User Profile</th>
+                                        <th>Email Address</th>
+                                        <th>Access Level (Role)</th>
+                                        <th>Account Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="5" style="text-align:center; padding: 48px; color:var(--text-muted);">Loading users...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="overview-col-side">
+                    <div class="card panel-card">
+                        <div class="panel-header">
+                            <h4>System Parameters</h4>
+                        </div>
+                        <div class="panel-body">
+                            <div class="system-settings-list" style="display:flex; flex-direction:column; gap:20px;">
+                                <div class="setting-item" style="font-size:13px;">
+                                    <strong style="display:block;margin-bottom:8px;color:var(--text-primary);">Audit Engine Mode:</strong>
+                                    <select class="btn btn-secondary" style="width:100%;text-align:left;padding:10px 12px;font-size:13px; background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border-color); border-radius:6px; cursor:pointer;">
+                                        <option>Strict Compliance (Default)</option>
+                                        <option>Relaxed Mode</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item" style="font-size:13px;">
+                                    <strong style="display:block;margin-bottom:8px;color:var(--text-primary);">Overlap Tolerance:</strong>
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <input type="checkbox" checked id="set-tol" style="width:16px;height:16px;accent-color:var(--accent-indigo);cursor:pointer;">
+                                        <label for="set-tol" style="color:var(--text-secondary);cursor:pointer;">Flag sub-segment inclusion</label>
+                                    </div>
+                                </div>
+                                <div class="setting-item" style="font-size:13px; border-top:1px solid var(--border-color); padding-top:16px;">
+                                    <strong style="display:block;margin-bottom:4px;color:var(--text-primary);">Database Health:</strong>
+                                    <span style="color:var(--accent-green);font-weight:600;display:flex;align-items:center;gap:6px;"><i class="fa-solid fa-circle-check"></i> Persistence File Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        
+        <footer style="margin-top: auto; padding-top: 64px; text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 500;">
+            Developed By : PT Inovasi Informatika Indonesia
+        </footer>
+
+        <!-- Toast container -->
+        <div id="toast-container" style="position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:12px;"></div>
+    </div>
+</body>
+</html>

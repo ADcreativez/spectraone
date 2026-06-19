@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectraOne - Cybersecurity Policy Assessment & Review</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Google Fonts Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <!-- Link JS File (DEFER LOAD BUG FIX) -->
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand-header">
+                <div class="brand-logo">
+                    <img src="logo.png" alt="SpectraOne Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+                </div>
+                <div class="brand-name">
+                    <h1>SpectraOne</h1>
+                    <span>Policy & Config Review</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <!-- Module Specific Menu -->
+                <div class="nav-category" id="sidebar-module-name" style="text-transform:uppercase;">Loading Module...</div>
+                <div id="module-menu-container">
+                    <div class="nav-item active" id="nav-dashboard" data-view="dashboard">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Dashboard</span>
+                    </div>
+                    <div class="nav-item" id="nav-upload" data-view="upload">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>New Scan / Upload</span>
+                    </div>
+                </div>
+                
+
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar"><i class="fa-solid fa-shield-halved"></i></div>
+                    <div class="user-info">
+                        <span class="user-name" id="current-user-fullname">Security Auditor</span>
+                        <span class="user-role" id="current-user-role">Auditor</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Universal Content Header -->
+            <header class="content-header">
+                <div class="header-title-area">
+                    <h2 id="current-brand-name">Platform Dashboard</h2>
+                    <p id="current-brand-desc">Unified cybersecurity configuration reviews and session tracker</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-accent" id="btn-audit-ref" style="display: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; color: #fff; gap: 8px;">
+                        <i class="fa-solid fa-clipboard-check"></i> Audit Reference
+                    </button>
+                    <div class="status-badge active-badge" id="brand-status">
+                        <span class="pulse-dot"></span>
+                        <span id="status-text">Active Session</span>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-back-hub" style="display: none;">
+                        <i class="fa-solid fa-house"></i> Back to Hub
+                    </button>
+                    <button class="btn btn-secondary" id="btn-reset" style="display: none;">
+                        <i class="fa-solid fa-arrow-rotate-left"></i> Analyze New File
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-body">
+                <!-- VIEW 1: Dashboard Panel -->
+                <section class="view-panel" id="dashboard-view">
+                    <!-- Dashboard Statistics Card Summary -->
+                    <div class="metrics-grid">
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-blue"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="dash-total-sessions">0</span>
+                                <span class="metric-label">Audit Sessions</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-indigo"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="dash-total-devices">0</span>
+                                <span class="metric-label">In Remediation</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-purple"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="dash-total-issues">0</span>
+                                <span class="metric-label">Complete</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-green"><i class="fa-solid fa-user-shield"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="dash-current-role">Auditor</span>
+                                <span class="metric-label">Active Role Profile</span>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Audit Sessions Log Card -->
+                    <div class="card panel-card">
+                        <div class="panel-header search-header">
+                            <div class="header-left">
+                                <h4>Audit Sessions History Log</h4>
+                                <p>Historical review sessions performed on policies and configurations.</p>
+                            </div>
+                        </div>
+                        <div class="panel-body table-responsive">
+                            <table class="report-table" id="table-sessions">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Brand & Audit</th>
+                                        <th>Target Filename</th>
+                                        <th>Total Issues</th>
+                                        <th>Issues Breakdown</th>
+                                        <th>Audit Status</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Injected dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+
+
+                <!-- VIEW 3: Upload View -->
+                <section class="view-panel" id="upload-view" style="display: none;">
+                    <div class="welcome-card card">
+                        <div class="welcome-text">
+                            <h3 id="upload-brand-title">Upload Konfigurasi</h3>
+                            <p id="drop-zone-hint">Upload file ekspor konfigurasi untuk memulai assessment keamanan — identifikasi duplikasi, konflik, dan celah kebijakan.</p>
+                        </div>
+                        <div class="brand-badge-list">
+                            <span class="badge"><i class="fa-solid fa-circle-check"></i> Forescout XML</span>
+                            <span class="badge"><i class="fa-solid fa-circle-check"></i> BeyondTrust ZIP/JSON</span>
+                            <span class="badge"><i class="fa-solid fa-circle-check"></i> Symantec DLP JSON</span>
+                        </div>
+                    </div>
+
+                    <div class="upload-zone-container">
+                        <!-- Template Download Button (shown only for brands with templates) -->
+                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                            <button id="btn-download-template" style="display:none; align-items:center; gap:8px; padding:8px 16px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); color:var(--accent-indigo); border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">
+                                <i class="fa-solid fa-download"></i> Download Template JSON
+                            </button>
+                        </div>
+                        <div class="upload-zone" id="drop-zone">
+                            <input type="file" id="file-input" accept=".xml,.json" style="display: none;">
+                            <div class="upload-icon">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <h4>Drag and drop file konfigurasi</h4>
+                            <p>atau <span>browse file</span> dari komputer Anda</p>
+                            <span class="file-format-info" id="drop-zone-formats">Format didukung: .XML, .JSON</span>
+                        </div>
+                    </div>
+
+                    <!-- XML structure tips -->
+                    <div class="quick-tips-grid">
+                        <div class="tip-card card">
+                            <div class="tip-icon"><i class="fa-solid fa-network-wired"></i></div>
+                            <h5>IP Overlap Analysis</h5>
+                            <p>SpectraOne automatically parses rule segments and compares IPv4 range intervals to flag overlapping logic.</p>
+                        </div>
+                        <div class="tip-card card">
+                            <div class="tip-icon"><i class="fa-solid fa-copy"></i></div>
+                            <h5>Duplicate Rule Names</h5>
+                            <p>Checks name conflicts across policies and sub-rule chains to help keep your configurations clean.</p>
+                        </div>
+                        <div class="tip-card card">
+                            <div class="tip-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                            <h5>Appliance Load Check</h5>
+                            <p>Finds rules with cache TTL configurations that are too low or match timing that is too aggressive.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: Dashboard/Report View (Hidden initially) -->
+                <section class="view-panel" id="report-view" style="display: none;">
+                    <!-- Metrics Row -->
+                    <div class="metrics-grid">
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-blue"><i class="fa-solid fa-folder-open"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="metric-folders">0</span>
+                                <span class="metric-label">Policy Folders</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-purple"><i class="fa-solid fa-scroll"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="metric-policies">0</span>
+                                <span class="metric-label">Main Policies</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-indigo"><i class="fa-solid fa-diagram-project"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="metric-inner-rules">0</span>
+                                <span class="metric-label">Inner Rules</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card">
+                            <div class="metric-icon bg-green"><i class="fa-solid fa-ethernet"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="metric-ranges">0</span>
+                                <span class="metric-label">IP Range Segments</span>
+                            </div>
+                        </div>
+                        <div class="metric-card card" id="metric-card-5" style="display: none;">
+                            <div class="metric-icon" style="background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff;"><i class="fa-solid fa-users-gear"></i></div>
+                            <div class="metric-data">
+                                <span class="metric-val" id="metric-extra">0</span>
+                                <span class="metric-label">Domain Groups</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Issues Summary Banner -->
+                    <div class="issue-summary-banner card">
+                        <div class="banner-title">
+                            <h4>Policy Security & Health Issues</h4>
+                            <p>We found <strong id="total-issues-banner">0</strong> items requiring review</p>
+                        </div>
+                        <div class="severity-badges-row">
+                            <div class="sev-badge critical">
+                                <span class="sev-num" id="badge-critical">0</span>
+                                <span class="sev-name">Critical</span>
+                            </div>
+                            <div class="sev-badge high">
+                                <span class="sev-num" id="badge-high">0</span>
+                                <span class="sev-name">High</span>
+                            </div>
+                            <div class="sev-badge medium">
+                                <span class="sev-num" id="badge-medium">0</span>
+                                <span class="sev-name">Medium</span>
+                            </div>
+                            <div class="sev-badge low">
+                                <span class="sev-num" id="badge-low">0</span>
+                                <span class="sev-name">Low</span>
+                            </div>
+                            <div class="sev-badge info">
+                                <span class="sev-num" id="badge-info">0</span>
+                                <span class="sev-name">Info</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Navigation -->
+                    <div class="tabs-container">
+                        <div class="tabs-list" id="dynamic-tabs-nav">
+                            <!-- Injected dynamically -->
+                        </div>
+
+                        <!-- Tab Content Panels -->
+                        <div class="tab-content-container" id="dynamic-tabs-body">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============================================== -->
+                <!-- TEMPLATES FOR DYNAMIC TABS                     -->
+                <!-- ============================================== -->
+
+                <!-- TEMPLATE: Overview Tab -->
+                <template id="tpl-tab-overview">
+                    <div class="tab-panel" id="tab-overview">
+                        <!-- AD Password & Activity Sub-Grid -->
+                        <div class="ad-activity-grid" id="ad-activity-cards" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                            <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="showADExpiringPasswordsModal()">
+                                <div class="metric-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 36px; height: 36px; font-size: 15px; border-radius: 6px;"><i class="fa-solid fa-key"></i></div>
+                                <div class="metric-data">
+                                    <span class="metric-val" id="ad-sub-expiring" style="font-size: 18px;">0</span>
+                                    <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Passwords expiring in 7 days</span>
+                                </div>
+                            </div>
+                            <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="showADExpiredPasswordsModal()">
+                                <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; width: 36px; height: 36px; font-size: 15px; border-radius: 6px;"><i class="fa-solid fa-circle-exclamation"></i></div>
+                                <div class="metric-data">
+                                    <span class="metric-val" id="ad-sub-expired" style="font-size: 18px;">0</span>
+                                    <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Password Expired Users</span>
+                                </div>
+                            </div>
+                            <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="showADInactiveUsers30Modal()">
+                                <div class="metric-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; width: 36px; height: 36px; font-size: 15px; border-radius: 6px;"><i class="fa-solid fa-user-clock"></i></div>
+                                <div class="metric-data">
+                                    <span class="metric-val" id="ad-sub-inactive-users" style="font-size: 18px;">0</span>
+                                    <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Inactive users in 30 days</span>
+                                </div>
+                            </div>
+                            <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="showADInactiveComputers30Modal()">
+                                <div class="metric-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 36px; height: 36px; font-size: 15px; border-radius: 6px;"><i class="fa-solid fa-laptop-code"></i></div>
+                                <div class="metric-data">
+                                    <span class="metric-val" id="ad-sub-inactive-computers" style="font-size: 18px;">0</span>
+                                    <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Inactive computers in 30 days</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="overview-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+                            <div class="overview-col-main" style="display: flex; flex-direction: column; gap: 24px;">
+                                
+                                <div class="card panel-card" id="forescout-appliances-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Forescout Architecture & Site Overview</h4>
+                                        <button class="btn-info-card" data-info-title="Architecture & Site Overview" data-info-content="&lt;p&gt;Overview arsitektur deployment Forescout, status High Availability (HA), serta segmentasi kantor pusat (HO) dan cabang yang terhubung.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body" style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+                                        <!-- HA Status and Stats Row -->
+                                        <div style="display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap;">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div id="forescout-ha-icon" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                                                    <i class="fa-solid fa-shield-halved"></i>
+                                                </div>
+                                                <div>
+                                                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">High Availability Status</div>
+                                                    <div id="forescout-ha-text" style="font-weight: 600; font-size: 14px; margin-top: 2px;">Checking...</div>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; gap: 24px;">
+                                                <div style="text-align: right;">
+                                                    <div style="font-size: 11px; color: var(--text-muted);">Engine Version</div>
+                                                    <div id="forescout-engine-version" style="font-size: 20px; font-weight: 700; color: var(--text-primary);">v9.1.4</div>
+                                                </div>
+                                                <div style="text-align: right;">
+                                                    <div style="font-size: 11px; color: var(--text-muted);">Total Appliances</div>
+                                                    <div id="forescout-appliance-count" style="font-size: 20px; font-weight: 700; color: var(--text-primary);">0</div>
+                                                </div>
+                                                <div style="text-align: right;">
+                                                    <div style="font-size: 11px; color: var(--text-muted);">Connected Sites</div>
+                                                    <div id="forescout-site-count" style="font-size: 20px; font-weight: 700; color: var(--text-primary);">0</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Zero Trust / Mode Enforcement Ratio -->
+                                        <div style="padding: 14px 16px; background: rgba(255,255,255,0.01); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                                <span style="font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                                                    <i class="fa-solid fa-user-shield" style="color: var(--accent-indigo);"></i> Zero Trust Enforcement Ratio
+                                                </span>
+                                                <span id="forescout-zt-ratio-text" style="font-weight: 700; color: var(--text-primary);">0% Active Block Mode</span>
+                                            </div>
+                                            <div style="height: 8px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; display: flex;">
+                                                <div id="forescout-zt-active-fill" style="width: 0%; background: var(--accent-indigo); transition: width 0.5s ease;" title="Active Enforcement Mode"></div>
+                                                <div id="forescout-zt-passive-fill" style="width: 100%; background: rgba(255,255,255,0.1); transition: width 0.5s ease;" title="Passive Monitoring Mode"></div>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); padding-top: 2px;">
+                                                <span>Active Actions (VLAN, Block, Restrict): <strong id="forescout-zt-active-count" style="color: var(--accent-indigo);">0</strong></span>
+                                                <span>Passive Actions (Group, Email, Syslog): <strong id="forescout-zt-passive-count" style="color: var(--text-muted);">0</strong></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Sites Grid -->
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+                                            <!-- HO Card -->
+                                            <div style="background: rgba(255,255,255,0.01); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); padding: 16px;">
+                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; color: #6366f1; font-size: 13px;">
+                                                    <i class="fa-solid fa-building"></i> Head Office (HO) / Pusat
+                                                </div>
+                                                <div id="forescout-ho-sites" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                    <!-- HO Sites -->
+                                                </div>
+                                            </div>
+                                            <!-- Cabang Card -->
+                                            <div style="background: rgba(255,255,255,0.01); border-radius: 8px; border: 1px solid rgba(255,255,255,0.04); padding: 16px;">
+                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; color: #10b981; font-size: 13px;">
+                                                    <i class="fa-solid fa-code-branch"></i> Cabang / Regional
+                                                </div>
+                                                <div id="forescout-cabang-sites" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                                    <!-- Cabang Sites -->
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Appliance List Table -->
+                                        <div>
+                                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-server"></i> Deployment Appliances
+                                            </div>
+                                            <div style="overflow-x: auto; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                                                    <thead>
+                                                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); color: var(--text-secondary);">
+                                                            <th style="padding: 10px 14px;">Appliance Name</th>
+                                                            <th style="padding: 10px 14px;">IP Address</th>
+                                                            <th style="padding: 10px 14px;">Role / Type</th>
+                                                            <th style="padding: 10px 14px;">Coverage</th>
+                                                            <th style="padding: 10px 14px; text-align: right;">Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="forescout-appliances-list">
+                                                        <!-- Appliances Rows -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="forescout-action-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Action Enforcement Profile</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Action Enforcement Profile" data-info-content="&lt;p&gt;Grafik ini menunjukkan seberapa sering suatu tindakan (Action) digunakan oleh aturan-aturan Anda. Jika banyak menggunakan aksi aktif seperti &lt;strong&gt;Virtual Firewall&lt;/strong&gt; atau &lt;strong&gt;Assign VLAN&lt;/strong&gt;, maka postur Anda agresif. Jika didominasi &lt;strong&gt;Send Email&lt;/strong&gt;, maka Anda masih dalam mode pasif/monitoring.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <canvas id="actionProfileChart" style="max-height: 250px;"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <div class="card panel-card" id="forescout-segment-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Network Segment Coverage</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Network Segment Coverage" data-info-content="&lt;p&gt;Menunjukkan Segment IP/Jaringan mana saja yang menjadi target dari rules. Area dengan jumlah rules yang sedikit atau 0 mungkin kurang terlindungi (under-secured).&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="issues-list-scroll" id="segment-coverage-container" style="max-height: 300px; padding-right: 8px;">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Local Exploit System Info Card -->
+                                <div class="card panel-card" id="local-exploit-system-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>System Information</h4>
+                                        <button class="btn-info-card" data-info-title="Info: System Information" data-info-content="&lt;p&gt;Informasi dasar sistem target yang dianalisis oleh tool local exploit suggester/PEAS.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body" style="padding: 16px 20px;">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;" id="le-system-info-container">
+                                            <!-- Dynamic system info here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Local Exploit Compliance Card -->
+                                <div class="card panel-card" id="local-exploit-compliance-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Local Exploit Security Checklist Compliance</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Local Exploit Compliance" data-info-content="&lt;p&gt;Menunjukkan status kepatuhan sistem operasi terhadap poin pemeriksaan keamanan local privilege escalation.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap; gap: 12px;">
+                                            <div>
+                                                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Overall Security Score:</div>
+                                                <div style="font-size: 24px; font-weight: 700; color: var(--accent-green); margin-top: 4px;" id="le-compliance-score">100%</div>
+                                            </div>
+                                            <button class="btn btn-primary btn-sm" onclick="window.print()" style="padding: 8px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-file-pdf"></i> Ekspor PDF Laporan
+                                            </button>
+                                        </div>
+                                        <div class="issues-list-scroll" id="le-compliance-list" style="max-height: 400px; padding-right: 8px; display: flex; flex-direction: column; gap: 10px;">
+                                            <!-- Checklist items here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="ad-compliance-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>AD Security Checklist Compliance</h4>
+                                        <button class="btn-info-card" data-info-title="Info: AD Security Checklist Compliance" data-info-content="&lt;p&gt;Menunjukkan status kepatuhan domain Active Directory Anda terhadap 15 poin pemeriksaan keamanan standar (CIS/PingCastle).&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap; gap: 12px;">
+                                            <div>
+                                                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary);">Overall Security Score:</div>
+                                                <div style="font-size: 24px; font-weight: 700; color: var(--accent-green); margin-top: 4px;" id="ad-compliance-score">100%</div>
+                                            </div>
+                                            <button class="btn btn-primary btn-sm" onclick="window.print()" style="padding: 8px 16px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                                <i class="fa-solid fa-file-pdf"></i> Ekspor PDF Laporan
+                                            </button>
+                                        </div>
+                                        <div class="issues-list-scroll" id="ad-compliance-list" style="max-height: 400px; padding-right: 8px; display: flex; flex-direction: column; gap: 10px;">
+                                            <!-- Checklist items here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card recommendations-card">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Policy Recommendations</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Policy Recommendations" data-info-content="&lt;p&gt;Berisi saran praktis dan strategis yang dihasilkan secara otomatis oleh SpectraOne berdasarkan hasil keseluruhan analisis konfigurasi.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <ul class="recommendation-list" id="recommendations-list">
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overview-col-side" style="display: flex; flex-direction: column; gap: 24px;">
+                                
+                                <div class="card panel-card" id="local-exploit-breakdown-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Risk & Exploit Breakdown</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Exploit Breakdown" data-info-content="&lt;p&gt;Summary of findings categories for local privilege escalation vulnerabilities.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="distribution-bars" id="le-breakdown-container">
+                                            <!-- Breakdown items here -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="ad-breakdown-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>AD Object & Account Breakdown</h4>
+                                        <button class="btn-info-card" data-info-title="Info: AD Object & Account Breakdown" data-info-content="&lt;p&gt;Analysis of the composition of objects and accounts registered in Active Directory.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="distribution-bars" id="ad-breakdown-container">
+                                            <!-- Breakdown items here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card panel-card status-distribution-card">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Issue Distribution</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Issue Distribution" data-info-content="&lt;p&gt;Maps found anomalies and policies into severity classification categories (High, Medium, Low, Info).&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="donut-chart-container">
+                                            <div class="distribution-bars" id="dist-bars-container">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="forescout-hygiene-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Policy Hygiene (Enabled vs Disabled)</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Policy Hygiene" data-info-content="&lt;p&gt;Membandingkan jumlah aturan yang &lt;strong&gt;Enabled&lt;/strong&gt; vs &lt;strong&gt;Disabled&lt;/strong&gt;. Tingginya persentase Disabled menandakan banyaknya penumpukan sampah konfigurasi lama.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="distribution-bars" id="hygiene-container">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="forescout-conditions-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Top Evaluation Conditions</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Top Evaluation Conditions" data-info-content="&lt;p&gt;Menunjukkan kriteria/kondisi filter apa yang paling sering dicek pada perangkat (contoh: MAC Address, Windows OS, Open Ports). Berguna untuk mengetahui prioritas pilar kepatuhan (Compliance) Anda.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body">
+                                        <div class="distribution-bars" id="top-conditions-container" style="max-height: 250px; overflow-y: auto;">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card panel-card" id="forescout-modules-card" style="display: none;">
+                                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <h4>Forescout Product Modules</h4>
+                                        <button class="btn-info-card" data-info-title="Info: Forescout Product Modules" data-info-content="&lt;p&gt;Status deteksi fungsionalitas modul lisensi Forescout (eyeSight, eyeControl, eyeExtend, eyeInspect, eyeSegment) yang dideteksi secara otomatis dari jenis rule, action, dan segmen yang terkonfigurasi.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </button>
+                                    </div>
+                                    <div class="panel-body" style="padding: 10px 0;">
+                                        <div id="forescout-modules-list" style="display: flex; flex-direction: column; gap: 12px;">
+                                            <!-- Injected dynamically via app.js -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- TEMPLATE: Findings Tab -->
+                <template id="tpl-tab-findings">
+                    <div class="tab-panel" id="tab-findings">
+                        <div class="card panel-card" style="min-height: 500px;">
+                            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; gap: 16px; flex-wrap: wrap;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <h4>All Health & Security Findings</h4>
+                                    <button class="btn-info-card" data-info-title="Info: All Findings" data-info-content="&lt;p&gt;List of all issues (Health &amp; Security) that require attention. These findings are classified based on logical errors or inefficiencies in security configurations.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    </button>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <div class="search-box" style="margin:0; width: 220px;">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="findings-search" placeholder="Search findings..." style="width: 100%;">
+                                    </div>
+                                    <select id="findings-severity-filter" style="padding: 8px 12px; background: var(--bg-surface-dark); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; outline: none; cursor: pointer; height: 36px; font-weight: 500;">
+                                        <option value="">All Severities</option>
+                                        <option value="Critical">Critical</option>
+                                        <option value="High">High</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Low">Low</option>
+                                        <option value="Info">Info</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <div class="issues-list-scroll" id="top-issues-container" style="max-height: calc(100vh - 250px);">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- TEMPLATE: Attack Paths Graph Tab -->
+                <template id="tpl-tab-ad-graph">
+                    <div class="tab-panel" id="tab-ad-graph">
+                        <div class="bloodhound-layout" style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; height: 600px; max-height: 600px; overflow: hidden;">
+                            
+                            <!-- Left Sidebar (Bloodhound Control Panel) -->
+                            <div class="bh-sidebar card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-surface-dark); border: 1px solid var(--border-color); border-radius: 10px; height: 600px; max-height: 600px;">
+                                <!-- Bloodhound Header Search & Details -->
+                                <div class="bh-sidebar-header" style="padding: 12px; border-bottom: 1px solid var(--border-color); display:flex; flex-direction:column; gap:8px; background: rgba(0,0,0,0.15);">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <button style="background:none; border:none; color:var(--text-muted); font-size:14px; cursor:pointer;"><i class="fa-solid fa-bars"></i></button>
+                                        <div style="flex:1; display:flex; align-items:center; background: rgba(0,0,0,0.2); border:1px solid var(--border-color); border-radius:4px; padding:4px 8px;">
+                                            <i class="fa-solid fa-search" style="color:var(--text-muted); font-size:11px; margin-right:6px;"></i>
+                                            <input type="text" id="bh-node-search" placeholder="Search for node..." style="background:none; border:none; outline:none; color:var(--text-primary); font-size:12px; width:100%;">
+                                            <i class="fa-solid fa-filter" style="color:var(--text-muted); font-size:11px; cursor:pointer;"></i>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex; align-items:center; justify-content:space-between; background: rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:4px; padding:6px 10px;">
+                                        <span id="bh-active-target" style="font-size:11px; color:var(--accent-indigo); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">DOMAIN ADMINS@TESTLAB.LOCAL</span>
+                                        <button id="bh-run-query-btn" style="background:#10b981; border:none; color:#ffffff; padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:600; display:flex; align-items:center; gap:6px; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                            <i class="fa-solid fa-play"></i> Run Query
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Tab Buttons (Database Info, Node Info, Analysis) -->
+                                <div class="bh-tabs" style="display: flex; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.2);">
+                                    <button class="bh-tab-btn active" data-bh-tab="bh-tab-db" style="flex:1; padding:12px 6px; background:none; border:none; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; transition: all 0.2s;">Database Info</button>
+                                    <button class="bh-tab-btn" data-bh-tab="bh-tab-node" style="flex:1; padding:12px 6px; background:none; border:none; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; transition: all 0.2s;">Node Info</button>
+                                    <button class="bh-tab-btn" data-bh-tab="bh-tab-analysis" style="flex:1; padding:12px 6px; background:none; border:none; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; transition: all 0.2s;">Analysis</button>
+                                    <button class="bh-tab-btn" data-bh-tab="bh-tab-summary" style="flex:1; padding:12px 6px; background:none; border:none; color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; text-align:center; transition: all 0.2s;">Attack Summary</button>
+                                </div>
+
+                                <!-- Tab Content Panels -->
+                                <div class="bh-tab-panels" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column;">
+                                    
+                                    <!-- DB Info Panel -->
+                                    <div class="bh-panel-content" id="bh-tab-db" style="display: block;">
+                                        <h5 style="margin:0 0 12px 0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Domain Overview</h5>
+                                        <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; color:var(--text-secondary);">
+                                            <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.02); border-radius:4px;"><span style="display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-users" style="color:#2563eb;"></i> Users:</span><strong id="bh-db-users">0</strong></div>
+                                            <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.02); border-radius:4px;"><span style="display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-laptop" style="color:#d97706;"></i> Computers:</span><strong id="bh-db-computers">0</strong></div>
+                                            <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.02); border-radius:4px;"><span style="display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-users-gear" style="color:#059669;"></i> Groups:</span><strong id="bh-db-groups">0</strong></div>
+                                            <div style="display:flex; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.02); border-radius:4px;"><span style="display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-shield-halved" style="color:#7c3aed;"></i> GPOs:</span><strong id="bh-db-gpos">0</strong></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Node Info Panel (Inspector) -->
+                                    <div class="bh-panel-content" id="bh-tab-node" style="display: none;">
+                                        <div class="inspector-placeholder" id="graph-inspector-placeholder" style="text-align:center; padding: 20px 0; color:var(--text-muted);">
+                                            <i class="fa-solid fa-circle-info" style="font-size:24px; margin-bottom:10px; opacity:0.5;"></i>
+                                            <p style="font-size:11px; margin:0; line-height:1.4;">Click any node or relationship edge in the graph to inspect properties.</p>
+                                        </div>
+                                        <div class="inspector-content" id="graph-inspector-content" style="display: none;">
+                                            <div class="inspector-title-bar" style="margin-bottom:14px;">
+                                                <span class="node-type-badge" id="graph-inspector-type" style="font-size:9px; padding:2px 6px; background:var(--accent-indigo); border-radius:4px; font-weight:700; color:white;">USER</span>
+                                                <h4 id="graph-inspector-name" style="margin:4px 0 0 0; font-size:14px; color:var(--text-primary); font-weight:600;">Administrator</h4>
+                                            </div>
+                                            <div class="inspector-section" style="margin-bottom:14px;">
+                                                <h5 style="font-size:11px; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;">Properties</h5>
+                                                <div id="graph-inspector-properties" style="font-size:11px; color:var(--text-secondary); display:flex; flex-direction:column; gap:6px; word-break:break-all;">
+                                                    <!-- Injected dynamically -->
+                                                </div>
+                                            </div>
+                                            <div class="inspector-section" id="graph-inspector-edge-sec" style="display:none;">
+                                                <h5 style="font-size:11px; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;">Relationship</h5>
+                                                <p id="graph-inspector-edge-desc" style="font-size:11px; color:var(--text-secondary); line-height:1.4; margin:0;"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Analysis Panel (Queries List) -->
+                                    <div class="bh-panel-content" id="bh-tab-analysis" style="display: none;">
+                                        <h5 style="margin:0 0 12px 0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Predefined Queries</h5>
+                                        <div class="bh-query-list" style="display:flex; flex-direction:column; gap:4px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                                            <button class="bh-query-btn active" data-query-val="all_domain_admins" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find all Domain Admins</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Shortest Paths to Domain Admins</button>
+                                            <button class="bh-query-btn" data-query-val="dcsync_rights" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Principals with DCSync Rights</button>
+                                            <button class="bh-query-btn" data-query-val="foreign_users" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Users with Foreign Domain Group Membership</button>
+                                            <button class="bh-query-btn" data-query-val="foreign_groups" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Groups with Foreign Domain Group Membership</button>
+                                            <button class="bh-query-btn" data-query-val="domain_trusts" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Map Domain Trusts</button>
+                                            <button class="bh-query-btn" data-query-val="unconstrained_delegation" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Paths to Unconstrained Delegation Systems</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_kerberoastable" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Path from Kerberoastable Users</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_to_da_from_kerberoastable" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Paths to Domain Admins from Kerberoastable Users</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_from_owned" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Path from Owned Principals</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_to_da_from_owned" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Paths to Domain Admins from Owned Principals</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_to_hvt" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Paths to High Value Targets</button>
+                                            <button class="bh-query-btn" data-query-val="domain_users_local_admin" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Computers where Domain Users are Local Admin</button>
+                                            <button class="bh-query-btn" data-query-val="most_admins" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Computers with Most Admins</button>
+                                            <button class="bh-query-btn" data-query-val="domain_users_read_laps" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Computers where Domain Users can read LAPS passwords</button>
+                                            <button class="bh-query-btn" data-query-val="shortest_path_users_to_hvt" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Shortest Paths from Domain Users to High Value Targets</button>
+                                            <button class="bh-query-btn" data-query-val="all_paths_users_to_hvt" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find All Paths from Domain Users to High Value Targets</button>
+                                            <button class="bh-query-btn" data-query-val="workstations_rdp" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Workstations where Domain Users can RDP</button>
+                                            <button class="bh-query-btn" data-query-val="servers_rdp" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Servers where Domain Users can RDP</button>
+                                            <button class="bh-query-btn" data-query-val="dangerous_domain_users" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Dangerous Rights for Domain Users Groups</button>
+                                            <button class="bh-query-btn" data-query-val="kerberoastable_hvt_members" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Kerberoastable Members of High Value Groups</button>
+                                            <button class="bh-query-btn" data-query-val="all_kerberoastable" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">List all Kerberoastable Accounts</button>
+                                            <button class="bh-query-btn" data-query-val="kerberoastable_most_privileges" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Kerberoastable Users with most privileges</button>
+                                            <button class="bh-query-btn" data-query-val="da_logons_non_dc" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Domain Admin Logons to non-Domain Controllers</button>
+                                            <button class="bh-query-btn" data-query-val="unsupported_os" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Computers with Unsupported Operating Systems</button>
+                                            <button class="bh-query-btn" data-query-val="asrep_roastable" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find AS-REP Roastable Users (DontReqPreAuth)</button>
+                                        </div>
+
+                                        <div style="margin-top:16px; border-top: 1px solid var(--border-color); padding-top:12px;">
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                                <h5 style="margin:0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Custom Queries</h5>
+                                                <div style="display:flex; gap:6px;">
+                                                    <i class="fa-solid fa-pen" style="font-size:10px; color:var(--text-muted); cursor:pointer;"></i>
+                                                    <i class="fa-solid fa-rotate-right" style="font-size:10px; color:var(--text-muted); cursor:pointer;"></i>
+                                                </div>
+                                            </div>
+                                            <p style="font-size:11px; color:var(--text-muted); margin:0;">No user defined queries.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Attack Summary Panel -->
+                                    <div class="bh-panel-content" id="bh-tab-summary" style="display: none; height: 100%;">
+                                        <h5 style="margin:0 0 12px 0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Potential Attack Paths</h5>
+                                        <div id="bh-attack-summary-list" style="display:flex; flex-direction:column; gap:10px; font-size:11px; color:var(--text-secondary); max-height: 480px; overflow-y: auto; padding-right: 4px;">
+                                            <!-- Dynamically populated finding items -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Main Graph Panel -->
+                            <div class="bh-graph-panel card" style="display: flex; flex-direction: column; padding: 16px; height: 600px; max-height: 600px; position:relative; overflow: hidden;">
+                                <div id="ad-graph-canvas" style="width: 100%; height: 100%; min-height: 500px; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.08); position: relative;">
+                                    <div id="graph-limit-notice" style="display: none; position: absolute; top: 12px; right: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fda4af; padding: 6px 12px; border-radius: 6px; font-size: 11px; z-index: 10; align-items: center; gap: 6px; backdrop-filter: blur(4px);">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                        <span id="graph-limit-text">Menampilkan 15 data teratas untuk mencegah hang.</span>
+                                    </div>
+                                    <div id="graph-loading" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:12px; color:var(--text-muted); font-size:13px; background:rgba(0,0,0,0.7); padding:20px 30px; border-radius:8px; border:1px solid var(--border-color); backdrop-filter:blur(6px); z-index:9; min-width:240px; text-align:center;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="font-size:32px; color:var(--accent-indigo);"></i>
+                                        <span id="graph-loading-text">Generating interactive relationship graph...</span>
+                                        <div id="graph-progress-container" style="width:100%; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-top:6px;">
+                                            <div id="graph-progress-bar" style="width:0%; height:100%; background:var(--accent-indigo); transition:width 0.1s ease;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Raw Query Bar at Bottom -->
+                                <div class="bh-raw-query-bar" style="margin-top:12px; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:6px; display:flex; flex-direction:column; gap:4px;">
+                                    <span style="font-size:10px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Raw Cypher Query</span>
+                                    <code id="bh-cypher-code" style="font-family:monospace; font-size:11px; color:#a5b4fc; word-break:break-all; line-height:1.4;">MATCH p=shortestPath((n)-[:MemberOf|AdminTo|AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|CanRDP|AllowedToDelegate|ReadLAPSPas...</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- TEMPLATE: Generic Table Tab (For Overlaps, Duplicates, Hygiene, BeyondTrust, DLP) -->
+                <template id="tpl-tab-generic-table">
+                    <div class="tab-panel">
+                        <div class="card panel-card">
+                            <div class="panel-header search-header">
+                                <div class="header-left">
+                                    <h4 class="tpl-title">Tab Title</h4>
+                                    <p class="tpl-desc">Tab Description</p>
+                                </div>
+                                <div class="search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" class="tpl-search" placeholder="Search...">
+                                </div>
+                            </div>
+                            <div class="panel-body table-responsive">
+                                <table class="report-table tpl-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Severity</th>
+                                            <th>Finding Title</th>
+                                            <th>Issue Description</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- TEMPLATE: Explorer Tab (Forescout) -->
+                <template id="tpl-tab-explorer">
+                    <div class="tab-panel" id="tab-explorer">
+                        <div class="explorer-layout">
+                            <div class="explorer-tree-panel card">
+                                <div class="panel-header search-header">
+                                    <div class="header-left">
+                                        <h4>Policy Folder Tree</h4>
+                                    </div>
+                                    <div class="search-box">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="search-tree" placeholder="Search tree nodes...">
+                                    </div>
+                                </div>
+                                <div class="tree-container" id="policy-tree-root">
+                                </div>
+                            </div>
+
+                            <div class="explorer-detail-panel card" id="node-inspector">
+                                <div class="inspector-placeholder">
+                                    <i class="fa-solid fa-circle-info"></i>
+                                    <h4>No element selected</h4>
+                                    <p>Click on any folder, policy, or rule in the tree structure to inspect its parameters, conditions, and actions.</p>
+                                </div>
+                                <div class="inspector-content" style="display: none;">
+                                    <div class="inspector-title-bar">
+                                        <span class="node-type-badge" id="inspector-node-type">Policy</span>
+                                        <h4 id="inspector-node-name">Asset Classification</h4>
+                                    </div>
+                                    
+                                    <div class="inspector-section" id="inspector-sec-meta">
+                                        <h5>Metadata</h5>
+                                        <table class="detail-grid">
+                                            <tr>
+                                                <td>ID:</td>
+                                                <td id="meta-id">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Status:</td>
+                                                        <td><span class="status-pill green" id="meta-status">Enabled</span></td>
+                                                    </tr>
+                                                    <tr id="tr-cache">
+                                                        <td>Cache TTL:</td>
+                                                        <td id="meta-cache">-</td>
+                                                    </tr>
+                                                    <tr id="tr-desc">
+                                                        <td>Description:</td>
+                                                        <td id="meta-desc">-</td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+
+                                            <div class="inspector-section" id="inspector-sec-ranges" style="display: none;">
+                                                <h5>IP Ranges / Segment Scopes</h5>
+                                                <div class="ranges-list" id="inspector-ranges-list">
+                                                    <!-- Injected dynamically -->
+                                                </div>
+                                            </div>
+
+                                            <div class="inspector-section" id="inspector-sec-conditions" style="display: none;">
+                                                <h5>Evaluation Conditions</h5>
+                                                <div class="conditions-block" id="inspector-conditions-block">
+                                                    <!-- Injected dynamically -->
+                                                </div>
+                                            </div>
+
+                                            <div class="inspector-section" id="inspector-sec-actions" style="display: none;">
+                                                <h5>Triggered Actions</h5>
+                                                <div class="actions-block" id="inspector-actions-block">
+                                                    <!-- Injected dynamically -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                <!-- TEMPLATE: Remediation Tab (Generic) -->
+                <template id="tpl-tab-remediation">
+                    <div class="tab-panel" id="tab-remediation">
+                        <div class="card panel-card">
+                            <div class="panel-header search-header">
+                                <div class="header-left">
+                                    <h4>Workspace Tracking Remediation</h4>
+                                    <p>Track the individual progress of resolving security and configuration issues in this session.</p>
+                                </div>
+                                <div class="search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="search-remediation" placeholder="Search findings...">
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <!-- Progress Bar -->
+                                <div class="remediation-progress-container" style="background:rgba(255,255,255,0.02);border:1px solid var(--border-color);border-radius:10px;padding:18px;margin-bottom:20px;">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:12px;">
+                                        <div style="flex:1;">
+                                            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:6px;">
+                                                <span>Session Remediation Progress:</span>
+                                                <span id="remediation-progress-text">0 / 0 Findings Resolved (0%)</span>
+                                            </div>
+                                            <div class="dist-progress-track" style="height:12px;">
+                                                <div class="dist-progress-fill" id="remediation-progress-fill" style="width:0%; background:linear-gradient(90deg, var(--accent-green), #059669); transition: width 0.4s ease;"></div>
+                                            </div>
+                                        </div>
+                                        <div id="remediation-status-badge" class="status-badge active-badge" style="flex-shrink:0;">
+                                            OPEN
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+                                            <span style="width:8px;height:8px;border-radius:50%;background:var(--color-high);display:inline-block;"></span>
+                                            <span id="rem-open-count">0 Belum Selesai</span>
+                                        </div>
+                                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+                                            <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-green);display:inline-block;"></span>
+                                            <span id="rem-solved-count">0 Sudah Selesai</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Checklist List of Issues -->
+                                <div class="remediation-list" id="remediation-list-container" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto; padding-right:4px;">
+                                    <!-- Injected dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- TEMPLATE: Recommendations Tab -->
+                <template id="tpl-tab-recommendations">
+                    <div class="tab-panel" id="tab-recommendations">
+                        <div class="card panel-card">
+                            <div class="panel-header search-header" style="flex-wrap: wrap; gap: 15px; display: flex; justify-content: space-between; align-items: center;">
+                                <div class="header-left">
+                                    <h4>SpectraOne Policy Recommendations</h4>
+                                    <p>Proposed new policies to improve security posture, maximize efficiency, and utilize advanced product features based on audit findings.</p>
+                                </div>
+                                <div class="search-box">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <input type="text" id="search-recommendations" placeholder="Search recommendations...">
+                                </div>
+                            </div>
+                            
+                            <div class="panel-body">
+                                <!-- Summary Cards for Recommendations -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                                    <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255, 255, 255, 0.01);">
+                                        <div class="metric-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-indigo); width: 36px; height: 36px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-lightbulb"></i></div>
+                                        <div class="metric-data">
+                                            <span class="metric-val" id="rec-stat-total" style="font-size: 18px; color: #fff;">0</span>
+                                            <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Total Proposed Policies</span>
+                                        </div>
+                                    </div>
+                                    <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255, 255, 255, 0.01);">
+                                        <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--color-high); width: 36px; height: 36px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-shield-halved"></i></div>
+                                        <div class="metric-data">
+                                            <span class="metric-val" id="rec-stat-security" style="font-size: 18px; color: #fff;">0</span>
+                                            <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Security Enhancements</span>
+                                        </div>
+                                    </div>
+                                    <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255, 255, 255, 0.01);">
+                                        <div class="metric-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); width: 36px; height: 36px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-gauge-high"></i></div>
+                                        <div class="metric-data">
+                                            <span class="metric-val" id="rec-stat-efficiency" style="font-size: 18px; color: #fff;">0</span>
+                                            <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Efficiency & Tuning</span>
+                                        </div>
+                                    </div>
+                                    <div class="metric-card card sub-card" style="padding: 14px 18px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255, 255, 255, 0.01);">
+                                        <div class="metric-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); width: 36px; height: 36px; font-size: 15px; border-radius: 6px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-circle-nodes"></i></div>
+                                        <div class="metric-data">
+                                            <span class="metric-val" id="rec-stat-product" style="font-size: 18px; color: #fff;">0</span>
+                                            <span class="metric-label" style="font-size: 11px; color: var(--text-secondary); white-space: nowrap;">Product Capabilities Max</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Filters -->
+                                <div class="filter-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; flex-wrap: wrap;">
+                                    <button class="btn btn-sm btn-secondary filter-rec-btn active" data-rec-type="all">All Recommendations</button>
+                                    <button class="btn btn-sm btn-secondary filter-rec-btn" data-rec-type="security"><i class="fa-solid fa-shield-halved"></i> Keamanan (Security)</button>
+                                    <button class="btn btn-sm btn-secondary filter-rec-btn" data-rec-type="efficiency"><i class="fa-solid fa-gauge-high"></i> Efisiensi & Performa</button>
+                                    <button class="btn btn-sm btn-secondary filter-rec-btn" data-rec-type="product"><i class="fa-solid fa-circle-nodes"></i> Fitur & Integrasi</button>
+                                </div>
+                                
+                                <!-- Recommendations Container -->
+                                <div id="recommendations-cards-container" style="display: flex; flex-direction: column; gap: 16px;">
+                                    <!-- Injected Dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                        </div>
+            </div>
+            
+            <footer style="margin-top: auto; padding: 24px 0; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--border-color); width: 100%;">
+                Developed By : PT Inovasi Informatika Indonesia
+            </footer>
+        </main>
+    </div>
+
+    <!-- Processing Modal / Loader Overlay -->
+    <div class="loader-overlay" id="loader-overlay">
+        <div class="loader-content">
+            <div class="spinner" id="loader-spinner"></div>
+            <h4 id="loader-title">Parsing & Auditing Configuration...</h4>
+            
+            <div class="upload-progress-container" id="upload-progress-container" style="display:none; width: 100%; margin: 16px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: var(--text-secondary);">
+                    <span id="upload-progress-text">Uploading... 0%</span>
+                    <span id="upload-progress-bytes">0 / 0 MB</span>
+                </div>
+                <div class="dist-progress-track" style="height: 8px; background: rgba(255,255,255,0.05);">
+                    <div class="dist-progress-fill high" id="upload-progress-bar" style="width: 0%; background: var(--accent-indigo); transition: width 0.2s;"></div>
+                </div>
+            </div>
+
+            <p id="loader-desc">SpectraOne is examining policy folders, calculating IP intersections, and validating rules against performance best-practices.</p>
+        </div>
+    </div>
+
+    <!-- Details Dialog Modal -->
+    <div class="modal-backdrop" id="details-modal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h4 id="modal-title">Issue Details</h4>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-content">
+                <!-- Injected dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="modal-ok-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toast-container"></div>
+</body>
+</html>

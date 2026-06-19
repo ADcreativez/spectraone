@@ -1,0 +1,59 @@
+{
+  "users": [
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-500",
+      "Properties": {
+        "name": "Administrator@MANTAINSIGHT.LOCAL",
+        "admincount": true,
+        "enabled": true
+      }
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-1001",
+      "Properties": {
+        "name": "John.Doe@MANTAINSIGHT.LOCAL",
+        "admincount": false,
+        "enabled": false
+      }
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-1002",
+      "Properties": {
+        "name": "BackupService@MANTAINSIGHT.LOCAL",
+        "admincount": true,
+        "enabled": true
+      }
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-1003",
+      "Properties": {
+        "name": "Old.Intern@MANTAINSIGHT.LOCAL",
+        "admincount": false,
+        "enabled": false
+      }
+    }
+  ],
+  "computers": [
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-2001",
+      "Properties": {
+        "name": "DC01.MANTAINSIGHT.LOCAL",
+        "haslaps": true
+      }
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-2002",
+      "Properties": {
+        "name": "FILE-SERVER.MANTAINSIGHT.LOCAL",
+        "haslaps": false
+      }
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-12345-2003",
+      "Properties": {
+        "name": "HR-LAPTOP-05.MANTAINSIGHT.LOCAL",
+        "haslaps": false
+      }
+    }
+  ]
+}

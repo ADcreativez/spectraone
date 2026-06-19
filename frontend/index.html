@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectraOne - Module Hub</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <!-- Google Fonts Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="hub.js" defer></script>
+    <style>
+        .hub-page-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding: 48px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .hub-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 48px;
+            width: 100%;
+        }
+        .hub-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .hub-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent-indigo);
+        }
+        .nav-user {
+            background: rgba(99,102,241,0.1);
+            border-color: rgba(99,102,241,0.3);
+            color: var(--accent-indigo);
+        }
+        .hub-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            flex: 1;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .hub-logo {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 12px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            height: 56px;
+            width: 56px;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+        .hub-title h1 {
+            font-family: var(--font-header);
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+        .hub-title p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .hub-welcome {
+            margin-bottom: 48px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .hub-welcome h2 {
+            font-family: var(--font-header);
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        .hub-welcome p {
+            color: var(--text-secondary);
+            font-size: 16px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        .module-hub-grid {
+            justify-content: center;
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+    </style>
+</head>
+<body>
+    <div class="hub-page-container">
+        <header class="hub-header">
+            <div class="hub-header-left">
+                <div class="hub-logo">
+                    <img src="logo.png" alt="SpectraOne Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px;">
+                </div>
+                <div class="hub-title">
+                    <h1>SpectraOne</h1>
+                    <p>Cybersecurity Configuration Assessment & Review</p>
+                </div>
+            </div>
+            <div class="hub-header-right">
+                <button class="nav-btn" id="btn-config" title="System Configuration">
+                    <i class="fa-solid fa-gear"></i> Config
+                </button>
+                <button class="nav-btn nav-user" id="btn-user-role" title="Toggle User Role">
+                    <i class="fa-solid fa-user-shield"></i> <span id="current-hub-role">Admin</span>
+                </button>
+                <button class="nav-btn" id="btn-logout" title="Logout">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="hub-content-wrapper">
+            <section class="hub-welcome">
+                <h2>Select an Assessment Module</h2>
+                <p>Choose a security technology below to start analyzing configurations, identifying overlaps, and validating policies against best practices.</p>
+            </section>
+
+            <!-- Assessment Modules Hub -->
+            <div id="module-hub-container" class="module-hub-grid">
+                <!-- Hub cards injected dynamically -->
+                <div style="color: var(--text-muted);">Loading assessment modules...</div>
+            </div>
+        </div>
+
+        <footer style="margin-top: auto; padding-top: 64px; text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 500;">
+            Developed By : PT Inovasi Informatika Indonesia
+        </footer>
+    </div>
+</body>
+</html>
