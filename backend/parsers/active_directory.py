@@ -12,6 +12,7 @@ class ActiveDirectoryParser(BaseParser):
     assessment_tabs = [
         {"id": "tab-overview", "title": "AD Overview", "icon": "fa-solid fa-chart-pie", "category_filter": None},
         {"id": "tab-findings", "title": "All Findings", "icon": "fa-solid fa-list", "category_filter": None},
+        {"id": "tab-ad-mapping", "title": "Environment Mapping", "icon": "fa-solid fa-sitemap", "category_filter": None},
         {"id": "tab-stale-accounts", "title": "Stale Accounts", "icon": "fa-solid fa-user-clock", "category_filter": "Stale Accounts"},
         {"id": "tab-privileges", "title": "Privilege Risks", "icon": "fa-solid fa-user-shield", "category_filter": "Privileges"},
         {"id": "tab-ad-graph", "title": "Attack Paths Graph", "icon": "fa-solid fa-project-diagram", "category_filter": None},

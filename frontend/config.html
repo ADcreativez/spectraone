@@ -94,9 +94,14 @@
             <div class="overview-grid">
                 <div class="overview-col-main">
                     <div class="card panel-card">
-                        <div class="panel-header">
-                            <h4>User Access & Roles Controls</h4>
-                            <p>Configure user permission credentials and authorization profiles.</p>
+                        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                            <div>
+                                <h4>User Access & Roles Controls</h4>
+                                <p>Configure user permission credentials and authorization profiles.</p>
+                            </div>
+                            <button class="btn btn-primary" id="btn-create-user">
+                                <i class="fa-solid fa-user-plus"></i> Tambah User
+                            </button>
                         </div>
                         <div class="panel-body table-responsive">
                             <table class="report-table" id="table-users">
@@ -104,13 +109,14 @@
                                     <tr>
                                         <th>User Profile</th>
                                         <th>Email Address</th>
+                                        <th>Organization</th>
+                                        <th>Allowed Modules</th>
                                         <th>Access Level (Role)</th>
-                                        <th>Account Status</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td colspan="5" style="text-align:center; padding: 48px; color:var(--text-muted);">Loading users...</td></tr>
+                                    <tr><td colspan="6" style="text-align:center; padding: 48px; color:var(--text-muted);">Loading users...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -152,6 +158,69 @@
         <footer style="margin-top: auto; padding-top: 64px; text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 500;">
             Developed By : PT Inovasi Informatika Indonesia
         </footer>
+
+        <!-- User Settings Modal -->
+        <div id="user-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+            <div class="card" style="width: 500px; max-width: 90%; background: var(--bg-secondary); border-radius: 12px; display: flex; flex-direction: column; gap: 20px; padding: 30px; box-shadow: var(--shadow-premium); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    <h4 id="user-modal-title" style="font-family: var(--font-header); font-size: 18px; font-weight: 700; color: white;">Edit User Settings</h4>
+                    <button id="user-modal-close" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px;"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <form id="form-user" style="display: flex; flex-direction: column; gap: 14px;">
+                    <input type="hidden" id="edit-user-mode" value="edit">
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-username" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Username</label>
+                        <input type="text" id="edit-username" required style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; font-size: 13px;">
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-fullname" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Full Name</label>
+                        <input type="text" id="edit-fullname" required style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; font-size: 13px;">
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-email" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Email Address</label>
+                        <input type="email" id="edit-email" required style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; font-size: 13px;">
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-organization" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Organization / Company</label>
+                        <input type="text" id="edit-organization" required style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; font-size: 13px;">
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-password" id="label-password" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Password</label>
+                        <input type="password" id="edit-password" placeholder="Kosongkan jika tidak ingin diubah" style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; font-size: 13px;">
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label for="edit-role" style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Access Level (Role)</label>
+                        <select id="edit-role" style="padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; outline: none; cursor: pointer; font-size: 13px;">
+                            <option value="Admin">Admin</option>
+                            <option value="Auditor">Auditor</option>
+                            <option value="Viewer">Viewer</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Allowed Modules</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-primary); cursor:pointer;"><input type="checkbox" name="module" value="forescout" class="module-cb"> Forescout NAC</label>
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-primary); cursor:pointer;"><input type="checkbox" name="module" value="beyondtrust" class="module-cb"> BeyondTrust PAM</label>
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-primary); cursor:pointer;"><input type="checkbox" name="module" value="symantec_dlp" class="module-cb"> Symantec DLP</label>
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-primary); cursor:pointer;"><input type="checkbox" name="module" value="active_directory" class="module-cb"> Active Directory</label>
+                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-primary); cursor:pointer;"><input type="checkbox" name="module" value="local_exploit" class="module-cb"> Local Exploit</label>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 14px; margin-top: 6px;">
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-user">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btn-save-user">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- Toast container -->
         <div id="toast-container" style="position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:12px;"></div>

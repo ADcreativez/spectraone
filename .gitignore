@@ -125,3 +125,5 @@ backend/data/report_*.json
 backend/data/sessions.json
 backend/data/users.json
 scratch/
+cert.pem
+key.pem

@@ -121,10 +121,16 @@
 
                     <!-- Audit Sessions Log Card -->
                     <div class="card panel-card">
-                        <div class="panel-header search-header">
+                        <div class="panel-header search-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                             <div class="header-left">
                                 <h4>Audit Sessions History Log</h4>
                                 <p>Historical review sessions performed on policies and configurations.</p>
+                            </div>
+                            <div class="header-right" id="admin-org-filter-container" style="display: none; align-items: center; gap: 8px;">
+                                <label for="filter-org" style="font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Filter Org:</label>
+                                <select id="filter-org" style="padding: 6px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.2); color: var(--text-primary); border: 1px solid var(--border-color); font-size: 13px; outline: none; cursor: pointer; transition: all 0.2s;">
+                                    <option value="All Organizations">All Organizations</option>
+                                </select>
                             </div>
                         </div>
                         <div class="panel-body table-responsive">
@@ -325,6 +331,18 @@
                             </div>
                         </div>
 
+                        <!-- AD Critical Security Alerts Banner -->
+                        <div id="ad-critical-alerts-banner" style="display:none; margin-bottom:24px; display:flex; flex-direction:column; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
+                                <i class="fa-solid fa-triangle-exclamation" style="color:#ef4444; font-size:16px;"></i>
+                                <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--text-primary);">Critical Security Alerts</h4>
+                                <span id="ad-critical-alerts-count" style="font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);">0</span>
+                            </div>
+                            <div id="ad-critical-alerts-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px;">
+                                <!-- Alerts injected by JS -->
+                            </div>
+                        </div>
+
                         <div class="overview-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
                             <div class="overview-col-main" style="display: flex; flex-direction: column; gap: 24px;">
                                 
@@ -515,6 +533,107 @@
                                     </div>
                                 </div>
 
+                                <!-- Network & Protocol Security (moved here, below AD Compliance) -->
+                                <div id="ad-network-security-panel" style="display:none;">
+                                    <div class="card panel-card">
+                                        <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                            <div style="display:flex; align-items:center; gap:10px;">
+                                                <h4 style="margin:0;">Network &amp; Protocol Security</h4>
+                                                <span style="font-size:10px; font-weight:600; padding:2px 8px; border-radius:4px; background:rgba(99,102,241,0.1); color:var(--accent-indigo); border:1px solid rgba(99,102,241,0.2);">NEW</span>
+                                            </div>
+                                            <button class="btn-info-card" data-info-title="Network &amp; Protocol Security" data-info-content="&lt;p&gt;Analisis status keamanan jaringan Active Directory termasuk LAPS deployment, SMB Signing enforcement, dan konfigurasi LDAP. Data diambil langsung dari output BloodHound.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                                <i class="fa-solid fa-circle-info"></i>
+                                            </button>
+                                        </div>
+                                        <div class="panel-body" style="padding:20px;">
+                                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                                                <!-- LAPS Gauge -->
+                                                <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px;">
+                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                                                        <div style="display:flex; align-items:center; gap:8px;">
+                                                            <div style="width:32px; height:32px; border-radius:8px; background:rgba(239,68,68,0.12); display:flex; align-items:center; justify-content:center;">
+                                                                <i class="fa-solid fa-shield-halved" style="color:#ef4444; font-size:14px;"></i>
+                                                            </div>
+                                                            <div>
+                                                                <div style="font-size:12px; font-weight:700; color:var(--text-primary);">LAPS Deployment</div>
+                                                                <div style="font-size:10px; color:var(--text-muted);">Local Admin Password Solution</div>
+                                                            </div>
+                                                        </div>
+                                                        <span id="ad-laps-pct-badge" style="font-size:20px; font-weight:800; color:#ef4444;">0%</span>
+                                                    </div>
+                                                    <div style="height:8px; background:rgba(255,255,255,0.04); border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                                                        <div id="ad-laps-progress" style="height:100%; width:0%; background:linear-gradient(90deg, #ef4444, #f97316); border-radius:4px; transition:width 0.8s ease;"></div>
+                                                    </div>
+                                                    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted);">
+                                                        <span><i class="fa-solid fa-check-circle" style="color:var(--accent-green);"></i> Enabled: <strong id="ad-laps-enabled" style="color:var(--accent-green);">0</strong></span>
+                                                        <span><i class="fa-solid fa-times-circle" style="color:#ef4444;"></i> Disabled: <strong id="ad-laps-disabled" style="color:#ef4444;">0</strong></span>
+                                                    </div>
+                                                </div>
+                                                <!-- SMB Signing Gauge -->
+                                                <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:16px;">
+                                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                                                        <div style="display:flex; align-items:center; gap:8px;">
+                                                            <div style="width:32px; height:32px; border-radius:8px; background:rgba(245,158,11,0.12); display:flex; align-items:center; justify-content:center;">
+                                                                <i class="fa-solid fa-file-signature" style="color:#f59e0b; font-size:14px;"></i>
+                                                            </div>
+                                                            <div>
+                                                                <div style="font-size:12px; font-weight:700; color:var(--text-primary);">SMB Signing</div>
+                                                                <div style="font-size:10px; color:var(--text-muted);">NTLM Relay Protection</div>
+                                                            </div>
+                                                        </div>
+                                                        <span id="ad-smb-pct-badge" style="font-size:20px; font-weight:800; color:#f59e0b;">0%</span>
+                                                    </div>
+                                                    <div style="height:8px; background:rgba(255,255,255,0.04); border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                                                        <div id="ad-smb-progress" style="height:100%; width:0%; background:linear-gradient(90deg, #f59e0b, #eab308); border-radius:4px; transition:width 0.8s ease;"></div>
+                                                    </div>
+                                                    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted);">
+                                                        <span><i class="fa-solid fa-check-circle" style="color:var(--accent-green);"></i> Enforced: <strong id="ad-smb-enabled" style="color:var(--accent-green);">0</strong></span>
+                                                        <span><i class="fa-solid fa-times-circle" style="color:#f59e0b;"></i> Disabled: <strong id="ad-smb-disabled" style="color:#f59e0b;">0</strong></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- Affected Computers Table -->
+                                            <div style="background:rgba(0,0,0,0.1); border:1px solid rgba(255,255,255,0.05); border-radius:8px; overflow:hidden;">
+                                                <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                                                    <div style="display:flex; align-items:center; gap:8px;">
+                                                        <i class="fa-solid fa-server" style="color:var(--text-muted); font-size:12px;"></i>
+                                                        <span style="font-size:12px; font-weight:700; color:var(--text-primary);">Affected Computers</span>
+                                                        <span id="ad-netsec-total" style="font-size:10px; padding:1px 6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-muted); font-weight:600;">0</span>
+                                                    </div>
+                                                    <div style="display:flex; align-items:center; gap:8px;">
+                                                        <select id="ad-netsec-filter" style="padding:4px 10px; background:var(--bg-surface-dark); border:1px solid var(--border-color); border-radius:6px; color:var(--text-primary); font-size:11px; cursor:pointer;">
+                                                            <option value="all">All Issues</option>
+                                                            <option value="laps">LAPS Disabled Only</option>
+                                                            <option value="smb">SMB Signing Disabled Only</option>
+                                                            <option value="both">Both Issues</option>
+                                                        </select>
+                                                        <div class="search-box" style="margin:0; width:180px;">
+                                                            <i class="fa-solid fa-magnifying-glass"></i>
+                                                            <input type="text" id="ad-netsec-search" placeholder="Search computer..." style="width:100%;">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style="max-height:300px; overflow-y:auto;">
+                                                    <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                                                        <thead>
+                                                            <tr style="background:rgba(255,255,255,0.02); color:var(--text-secondary); font-weight:600; position:sticky; top:0; z-index:1;">
+                                                                <th style="padding:8px 12px; text-align:left; width:5%;">#</th>
+                                                                <th style="padding:8px 12px; text-align:left; width:40%;">Computer Name</th>
+                                                                <th style="padding:8px 12px; text-align:center; width:20%;">LAPS</th>
+                                                                <th style="padding:8px 12px; text-align:center; width:20%;">SMB Signing</th>
+                                                                <th style="padding:8px 12px; text-align:center; width:15%;">Risk</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="ad-netsec-tbody">
+                                                            <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Loading...</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="card panel-card recommendations-card">
                                     <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
                                         <h4>Policy Recommendations</h4>
@@ -618,6 +737,145 @@
                     </div>
                 </template>
 
+                <!-- TEMPLATE: AD Environment Mapping Tab -->
+                <template id="tpl-tab-ad-mapping">
+                    <div class="tab-panel" id="tab-ad-mapping" style="min-height: 500px;">
+                        <div class="card panel-card" id="ad-mapping-card">
+                            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <h4>Active Directory Environment & Infrastructure Mapping</h4>
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <div style="display:inline-flex; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:3px;">
+                                        <button class="btn-sm" id="ad-mapping-toggle-table" style="background:var(--accent-indigo); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; outline:none; transition:all 0.2s;"><i class="fa-solid fa-table"></i> Table View</button>
+                                        <button class="btn-sm" id="ad-mapping-toggle-topology" style="background:none; color:var(--text-muted); border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; outline:none; transition:all 0.2s;"><i class="fa-solid fa-network-wired"></i> Topology View</button>
+                                    </div>
+                                    <button class="btn-info-card" data-info-title="Info: Infrastructure Mapping" data-info-content="&lt;p&gt;Pemetaan arsitektur server Active Directory dengan analogi fungsionalitas di perusahaan untuk memudahkan pemahaman non-teknis.&lt;/p&gt;" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                 <!-- AD Forest Info Summary Bar -->
+                                 <div id="ad-forest-summary-bar" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin-bottom:20px; padding:20px; background:rgba(255,255,255,0.015); border:1px solid rgba(255,255,255,0.05); border-radius:12px; backdrop-filter: blur(4px);">
+                                     <!-- Left Stack: Forest & Identity Counts -->
+                                     <div style="display:flex; flex-direction:column; gap:14px; border-right: 1px solid rgba(255,255,255,0.05); padding-right:16px;">
+                                         <div style="display:flex; align-items:center; gap:12px;">
+                                             <div style="width:38px; height:38px; border-radius:8px; background:rgba(99,102,241,0.1); color:var(--accent-indigo); display:flex; align-items:center; justify-content:center; font-size:18px;">
+                                                 <i class="fa-solid fa-tree"></i>
+                                             </div>
+                                             <div>
+                                                 <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Active Directory Forest</div>
+                                                 <div id="ad-forest-name" style="font-size:15px; font-weight:700; color:#fff; font-family:monospace;">TESTLAB.LOCAL</div>
+                                             </div>
+                                         </div>
+                                         <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; font-size:12px;">
+                                             <div><span style="color:var(--text-muted); font-size:10px; display:block;">Root Domain</span> <strong id="ad-forest-root" style="font-family:monospace; color:#fff;">testlab.local</strong></div>
+                                             <div><span style="color:var(--text-muted); font-size:10px; display:block;">Forest Level</span> <strong id="ad-forest-level" style="color:#fff;">Windows Server 2016</strong></div>
+                                             <div><span style="color:var(--text-muted); font-size:10px; display:block;">Total Trusts</span> <strong id="ad-forest-trusts" style="color:#fff;">Single Domain</strong></div>
+                                             <div><span style="color:var(--text-muted); font-size:10px; display:block;">FSMO Roles DC</span> <strong id="ad-fsmo-dc" style="font-family:monospace; color:var(--accent-indigo);">DC01</strong></div>
+                                         </div>
+                                         <div style="display:flex; gap:10px; border-top:1px solid rgba(255,255,255,0.04); padding-top:10px; flex-wrap:wrap;">
+                                             <span style="font-size:11px; color:var(--text-secondary); background:rgba(255,255,255,0.04); padding:4px 8px; border-radius:4px;"><i class="fa-solid fa-users" style="margin-right:4px; color:#3b82f6;"></i><span id="ad-forest-users-count">0</span> Users</span>
+                                             <span style="font-size:11px; color:var(--text-secondary); background:rgba(255,255,255,0.04); padding:4px 8px; border-radius:4px;"><i class="fa-solid fa-laptop" style="margin-right:4px; color:#f59e0b;"></i><span id="ad-forest-comps-count">0</span> Computers</span>
+                                             <span style="font-size:11px; color:var(--text-secondary); background:rgba(255,255,255,0.04); padding:4px 8px; border-radius:4px;"><i class="fa-solid fa-users-gear" style="margin-right:4px; color:#10b981;"></i><span id="ad-forest-groups-count">0</span> Groups</span>
+                                         </div>
+                                     </div>
+
+                                     <!-- Right Stack: Security Risks Indicators -->
+                                     <div style="display:flex; flex-direction:column; gap:12px; justify-content:center;">
+                                         <div style="font-size:10px; color:var(--color-high); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+                                             <i class="fa-solid fa-shield-halved"></i> Security & Risk Highlights
+                                         </div>
+                                         <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; font-size:11px;">
+                                             <div onclick="window.showADHighlightDetails('asrep')" style="background:rgba(239,68,68,0.04); border:1px solid rgba(239,68,68,0.12); padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.08)'" onmouseout="this.style.background='rgba(239,68,68,0.04)'">
+                                                 <span style="color:var(--text-secondary);">AS-REP Roastable:</span>
+                                                 <strong id="ad-risk-asrep" style="color:#ef4444; font-size:12px;">0</strong>
+                                             </div>
+                                             <div onclick="window.showADHighlightDetails('kerb')" style="background:rgba(245,158,11,0.04); border:1px solid rgba(245,158,11,0.12); padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='rgba(245,158,11,0.08)'" onmouseout="this.style.background='rgba(245,158,11,0.04)'">
+                                                 <span style="color:var(--text-secondary);">Kerberoastable:</span>
+                                                 <strong id="ad-risk-kerb" style="color:#f59e0b; font-size:12px;">0</strong>
+                                             </div>
+                                             <div onclick="window.showADHighlightDetails('never-exp')" style="background:rgba(124,58,237,0.04); border:1px solid rgba(124,58,237,0.12); padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='rgba(124,58,237,0.08)'" onmouseout="this.style.background='rgba(124,58,237,0.04)'">
+                                                 <span style="color:var(--text-secondary);">Pass Never Expires:</span>
+                                                 <strong id="ad-risk-never-exp" style="color:#a78bfa; font-size:12px;">0</strong>
+                                             </div>
+                                             <div onclick="window.showADHighlightDetails('uncon')" style="background:rgba(16,185,129,0.04); border:1px solid rgba(16,185,129,0.12); padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='rgba(16,185,129,0.08)'" onmouseout="this.style.background='rgba(16,185,129,0.04)'">
+                                                 <span style="color:var(--text-secondary);">Unconstrained Del:</span>
+                                                 <strong id="ad-risk-uncon" style="color:#10b981; font-size:12px;">0</strong>
+                                             </div>
+                                         </div>
+                                         <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.04); padding-top:8px; align-items:center;">
+                                             <span>AD CIS Compliance Posture:</span>
+                                             <strong id="ad-mapping-compliance-score" style="color:var(--accent-green);">100%</strong>
+                                         </div>
+                                     </div>
+                                 </div>
+                                <!-- TABLE VIEW -->
+                                <div id="ad-mapping-table-view">
+                                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+                                        <div class="search-box" style="margin:0; width: 240px;">
+                                            <i class="fa-solid fa-magnifying-glass"></i>
+                                            <input type="text" id="ad-mapping-search" placeholder="Search IP or Hostname..." style="width: 100%;">
+                                        </div>
+                                        <select id="ad-mapping-role-filter" style="padding: 8px 12px; background: var(--bg-surface-dark); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; outline: none; cursor: pointer; height: 36px; font-weight: 500;">
+                                            <option value="">All Server Roles</option>
+                                            <option value="dc">Domain Controller (DC)</option>
+                                            <option value="dns">DNS Server</option>
+                                            <option value="ca">AD CS (CA)</option>
+                                            <option value="adfs">AD FS</option>
+                                            <option value="file">File Server</option>
+                                            <option value="dhcp">DHCP Server</option>
+                                            <option value="wsus">WSUS / SCCM</option>
+                                            <option value="sql">Database Server (SQL)</option>
+                                            <option value="exch">Mail Server (Exchange)</option>
+                                            <option value="jump">Jump Server / Bastion</option>
+                                            <option value="gpo">Group Policy Objects (GPO)</option>
+                                        </select>
+                                    </div>
+                                    <div style="overflow-x: auto; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; color: var(--text-primary);">
+                                            <thead>
+                                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); color: var(--text-secondary); font-weight:600;">
+                                                    <th style="padding: 12px 16px; width: 180px;">Nama Server</th>
+                                                    <th style="padding: 12px 16px; width: 260px;">Fungsi Utama</th>
+                                                    <th style="padding: 12px 16px; width: 240px;">Scope / Peran</th>
+                                                    <th style="padding: 12px 16px; width: 280px;">Detected Servers (Name & IP)</th>
+                                                    <th style="padding: 12px 16px; width: 200px;">Alert / Misconfig</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ad-mapping-tbody">
+                                                <tr>
+                                                    <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">Menganalisis lingkungan Active Directory...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                
+                                <!-- TOPOLOGY VIEW -->
+                                <div id="ad-mapping-topology-view" style="display:none; position:relative; min-height:550px; background:rgba(0,0,0,0.25); border-radius:8px; border:1px solid rgba(255,255,255,0.05); padding:20px; overflow:hidden;">
+                                    <svg id="ad-topology-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;"></svg>
+                                    
+                                    <div id="ad-topology-container" style="position:relative; z-index:2; width:100%; height:100%; display:flex; justify-content:space-between; align-items:center; min-height:500px; gap:40px; padding:20px 40px;">
+                                        <!-- Column 1: Left Node Stack (Security & Identity) -->
+                                        <div style="display:flex; flex-direction:column; gap:20px; width:220px;" id="ad-topology-left-stack"></div>
+                                        
+                                        <!-- Center Column: Domain Centerpiece -->
+                                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:260px;" id="ad-topology-center-stack">
+                                            <div id="ad-topology-domain-node" style="width:120px; height:120px; border-radius:50%; background:radial-gradient(circle, var(--accent-indigo) 0%, rgba(99,102,241,0.2) 70%); border:3px solid var(--accent-indigo); box-shadow:0 0 30px rgba(99,102,241,0.6); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:10px; cursor:default; transition:transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                                <i class="fa-solid fa-network-wired" style="font-size:32px; color:#fff; margin-bottom:6px;"></i>
+                                                <span id="topology-domain-name" style="font-size:11px; font-weight:700; color:#fff; font-family:monospace; text-transform:uppercase; word-break:break-all;">DOMAIN</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Column 3: Right Node Stack (Data & Services) -->
+                                        <div style="display:flex; flex-direction:column; gap:20px; width:220px;" id="ad-topology-right-stack"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- TEMPLATE: Findings Tab -->
                 <template id="tpl-tab-findings">
                     <div class="tab-panel" id="tab-findings">
@@ -655,10 +913,10 @@
                 <!-- TEMPLATE: Attack Paths Graph Tab -->
                 <template id="tpl-tab-ad-graph">
                     <div class="tab-panel" id="tab-ad-graph">
-                        <div class="bloodhound-layout" style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; height: 600px; max-height: 600px; overflow: hidden;">
+                        <div class="bloodhound-layout" style="display: grid; grid-template-columns: 320px 1fr; gap: 20px; height: 800px; max-height: 800px; overflow: hidden;">
                             
                             <!-- Left Sidebar (Bloodhound Control Panel) -->
-                            <div class="bh-sidebar card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-surface-dark); border: 1px solid var(--border-color); border-radius: 10px; height: 600px; max-height: 600px;">
+                            <div class="bh-sidebar card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; background: var(--bg-surface-dark); border: 1px solid var(--border-color); border-radius: 10px; height: 800px; max-height: 800px;">
                                 <!-- Bloodhound Header Search & Details -->
                                 <div class="bh-sidebar-header" style="padding: 12px; border-bottom: 1px solid var(--border-color); display:flex; flex-direction:column; gap:8px; background: rgba(0,0,0,0.15);">
                                     <div style="display:flex; align-items:center; gap:8px;">
@@ -726,7 +984,7 @@
                                     <!-- Analysis Panel (Queries List) -->
                                     <div class="bh-panel-content" id="bh-tab-analysis" style="display: none;">
                                         <h5 style="margin:0 0 12px 0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Predefined Queries</h5>
-                                        <div class="bh-query-list" style="display:flex; flex-direction:column; gap:4px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                                        <div class="bh-query-list" style="display:flex; flex-direction:column; gap:4px; max-height: 580px; overflow-y: auto; padding-right: 4px;">
                                             <button class="bh-query-btn active" data-query-val="all_domain_admins" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find all Domain Admins</button>
                                             <button class="bh-query-btn" data-query-val="shortest_path" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Shortest Paths to Domain Admins</button>
                                             <button class="bh-query-btn" data-query-val="dcsync_rights" style="text-align:left; padding:8px 12px; background:none; border:none; border-radius:6px; color:var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition:all 0.2s;">Find Principals with DCSync Rights</button>
@@ -770,16 +1028,23 @@
                                     <!-- Attack Summary Panel -->
                                     <div class="bh-panel-content" id="bh-tab-summary" style="display: none; height: 100%;">
                                         <h5 style="margin:0 0 12px 0; font-size:12px; color:var(--text-primary); text-transform:uppercase;">Potential Attack Paths</h5>
-                                        <div id="bh-attack-summary-list" style="display:flex; flex-direction:column; gap:10px; font-size:11px; color:var(--text-secondary); max-height: 480px; overflow-y: auto; padding-right: 4px;">
+                                        <div id="bh-attack-summary-list" style="display:flex; flex-direction:column; gap:10px; font-size:11px; color:var(--text-secondary); max-height: 680px; overflow-y: auto; padding-right: 4px;">
                                             <!-- Dynamically populated finding items -->
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Right Main Graph Panel -->
-                            <div class="bh-graph-panel card" style="display: flex; flex-direction: column; padding: 16px; height: 600px; max-height: 600px; position:relative; overflow: hidden;">
-                                <div id="ad-graph-canvas" style="width: 100%; height: 100%; min-height: 500px; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.08); position: relative;">
+                             <!-- Right Main Graph Panel -->
+                            <div class="bh-graph-panel card" style="display: flex; flex-direction: column; padding: 16px; height: 800px; max-height: 800px; position:relative; overflow-y: auto;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                                    <h5 style="margin:0; font-size:12px; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.5px;">Path Analysis View</h5>
+                                    <div style="display:inline-flex; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:3px;">
+                                        <button class="btn-sm" id="bh-toggle-graph" style="background:var(--accent-indigo); color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; outline:none; transition:all 0.2s;"><i class="fa-solid fa-project-diagram"></i> Graph View</button>
+                                        <button class="btn-sm" id="bh-toggle-list" style="background:none; color:var(--text-muted); border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; outline:none; transition:all 0.2s;"><i class="fa-solid fa-list"></i> List View</button>
+                                    </div>
+                                </div>
+                                <div id="ad-graph-canvas" style="width: 100%; height: 420px; min-height: 420px; background: rgba(0,0,0,0.15); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.08); position: relative;">
                                     <div id="graph-limit-notice" style="display: none; position: absolute; top: 12px; right: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fda4af; padding: 6px 12px; border-radius: 6px; font-size: 11px; z-index: 10; align-items: center; gap: 6px; backdrop-filter: blur(4px);">
                                         <i class="fa-solid fa-circle-info"></i>
                                         <span id="graph-limit-text">Menampilkan 15 data teratas untuk mencegah hang.</span>
@@ -793,10 +1058,46 @@
                                     </div>
                                 </div>
 
+                                <!-- List View Table Container -->
+                                <div id="ad-graph-list-view" style="display:none; width:100%; height:420px; min-height:420px; background:rgba(0,0,0,0.15); border-radius:8px; border:1px solid rgba(255,255,255,0.08); overflow-y:auto; padding:16px;">
+                                    <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left; color:var(--text-primary);">
+                                        <thead>
+                                            <tr style="border-bottom:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); color:var(--text-secondary); font-weight:600;">
+                                                <th style="padding:10px 12px; width:4%; text-align:center;">No</th>
+                                                <th style="padding:10px 12px; width:22%;">Source Node</th>
+                                                <th style="padding:10px 12px; width:22%;">Relationship</th>
+                                                <th style="padding:10px 12px; width:22%;">Target Node</th>
+                                                <th style="padding:10px 12px; width:30%;">
+                                                    <span style="display:flex; align-items:center; gap:6px;">
+                                                        <i class="fa-solid fa-route" style="color:var(--color-high); font-size:11px;"></i>
+                                                        Potential Attack Paths
+                                                    </span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="bh-list-tbody">
+                                            <tr>
+                                                <td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted);">Pilih query untuk menampilkan data...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
                                 <!-- Raw Query Bar at Bottom -->
                                 <div class="bh-raw-query-bar" style="margin-top:12px; padding:10px 14px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:6px; display:flex; flex-direction:column; gap:4px;">
                                     <span style="font-size:10px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Raw Cypher Query</span>
                                     <code id="bh-cypher-code" style="font-family:monospace; font-size:11px; color:#a5b4fc; word-break:break-all; line-height:1.4;">MATCH p=shortestPath((n)-[:MemberOf|AdminTo|AllExtendedRights|AddMember|ForceChangePassword|GenericAll|GenericWrite|Owns|WriteDacl|WriteOwner|CanRDP|AllowedToDelegate|ReadLAPSPas...</code>
+                                </div>
+
+                                <!-- Attack Tools & Commands Bar -->
+                                <div id="bh-attack-commands-bar" style="display:none; margin-top:12px; padding:12px 16px; background:rgba(239,68,68,0.03); border:1px solid rgba(239,68,68,0.12); border-radius:6px; flex-direction:column; gap:8px; max-height: 220px; overflow-y: auto;">
+                                    <div style="display:flex; align-items:center; gap:8px; color:var(--color-high); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+                                        <i class="fa-solid fa-terminal"></i>
+                                        <span>Exploitation Tools & Commands</span>
+                                    </div>
+                                    <div id="bh-attack-commands-content" style="display:flex; flex-direction:column; gap:8px;">
+                                        <!-- Dynamic content injected here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1055,6 +1356,18 @@
             </div>
 
             <p id="loader-desc">SpectraOne is examining policy folders, calculating IP intersections, and validating rules against performance best-practices.</p>
+        </div>
+    </div>
+
+    <!-- AD Server Details Profile Drawer -->
+    <div class="drawer-backdrop" id="ad-server-drawer-backdrop" onclick="window.closeServerDrawer()"></div>
+    <div class="server-drawer" id="ad-server-drawer">
+        <div class="drawer-header">
+            <h4 id="drawer-title">Server Profile</h4>
+            <button class="drawer-close" onclick="window.closeServerDrawer()">&times;</button>
+        </div>
+        <div class="drawer-body" id="ad-server-drawer-content">
+            <!-- Dynamic content goes here -->
         </div>
     </div>
 

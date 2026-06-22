@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,32 +36,73 @@ if not os.path.exists(SESSIONS_FILE):
     with open(SESSIONS_FILE, "w") as f:
         json.dump([], f)
 
-if not os.path.exists(USERS_FILE):
+import hashlib
+
+def get_password_hash(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def ensure_default_users_exist():
     default_users = [
-        {
-            "username": "auditor1",
-            "fullname": "Security Auditor",
-            "email": "auditor@spectraone.local",
-            "role": "Auditor",
-            "status": "Active"
-        },
         {
             "username": "admin",
             "fullname": "Manta Admin",
             "email": "admin@spectraone.local",
             "role": "Admin",
-            "status": "Active"
+            "status": "Active",
+            "organization": "SpectraOne",
+            "allowed_modules": ["forescout", "beyondtrust", "symantec_dlp", "active_directory", "local_exploit"],
+            "password": get_password_hash("password123")
+        },
+        {
+            "username": "auditor1",
+            "fullname": "Security Auditor",
+            "email": "auditor@spectraone.local",
+            "role": "Auditor",
+            "status": "Active",
+            "organization": "SpectraOne Local",
+            "allowed_modules": ["forescout", "beyondtrust", "symantec_dlp", "active_directory"],
+            "password": get_password_hash("password123")
         },
         {
             "username": "viewer1",
             "fullname": "Executive Viewer",
             "email": "viewer@spectraone.local",
             "role": "Viewer",
-            "status": "Active"
+            "status": "Active",
+            "organization": "Executive Org",
+            "allowed_modules": ["active_directory"],
+            "password": get_password_hash("password123")
         }
     ]
-    with open(USERS_FILE, "w") as f:
-        json.dump(default_users, f, indent=4)
+    
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump(default_users, f, indent=4)
+        return
+        
+    try:
+        with open(USERS_FILE, "r") as f:
+            users = json.load(f)
+    except Exception:
+        users = []
+        
+    updated = False
+    for default_user in default_users:
+        existing = next((u for u in users if u["username"] == default_user["username"]), None)
+        if not existing:
+            users.append(default_user)
+            updated = True
+        else:
+            for key in ["organization", "allowed_modules", "password"]:
+                if key not in existing:
+                    existing[key] = default_user[key]
+                    updated = True
+    if updated:
+        with open(USERS_FILE, "w") as f:
+            json.dump(users, f, indent=4)
+
+ensure_default_users_exist()
+
 
 # Helper functions for read/write
 def read_json_file(filepath):
@@ -211,24 +252,89 @@ async def analyze_config_legacy(file: UploadFile = File(...)):
     """Legacy endpoint — redirects to /api/analyze/forescout"""
     return await analyze_config("forescout", file)
 
+# Authentication & Organizations Endpoints
+@app.post("/api/login")
+def login(payload: dict = Body(...)):
+    username = payload.get("username")
+    password = payload.get("password")
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+        
+    users = read_json_file(USERS_FILE)
+    user = next((u for u in users if u["username"] == username), None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    if user.get("password") != pwd_hash:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+    user_data = user.copy()
+    if "password" in user_data:
+        del user_data["password"]
+    
+    token = f"token_{username}_{int(datetime.now().timestamp())}"
+    return {
+        "status": "success",
+        "token": token,
+        "user": user_data
+    }
+
+@app.get("/api/organizations")
+def get_organizations():
+    """Get all unique organizations from sessions and users list"""
+    organizations = set()
+    users = read_json_file(USERS_FILE)
+    for u in users:
+        org = u.get("organization")
+        if org:
+            organizations.add(org)
+    sessions = read_json_file(SESSIONS_FILE)
+    for s in sessions:
+        org = s.get("organization")
+        if org:
+            organizations.add(org)
+    return sorted(list(organizations))
+
 # Sessions API Endpoints
 @app.get("/api/sessions")
-def get_sessions():
-    """Get history of completed audit sessions"""
-    return read_json_file(SESSIONS_FILE)
+def get_sessions(
+    x_user_role: str = Header(None, alias="X-User-Role"),
+    x_user_organization: str = Header(None, alias="X-User-Organization"),
+    organization: str = None
+):
+    """Get history of completed audit sessions with permission controls"""
+    sessions = read_json_file(SESSIONS_FILE)
+    
+    if not x_user_role:
+        # Fallback to all sessions if no headers (backward compat / tests)
+        return sessions
+        
+    if x_user_role == "Admin":
+        if organization and organization != "All Organizations":
+            return [s for s in sessions if s.get("organization") == organization]
+        return sessions
+    else:
+        user_org = x_user_organization or ""
+        return [s for s in sessions if s.get("organization") == user_org]
 
 @app.post("/api/sessions")
-def create_session(session_data: dict = Body(...)):
+def create_session(
+    session_data: dict = Body(...),
+    x_user_organization: str = Header(None, alias="X-User-Organization")
+):
     """Save a new audit session in the history database"""
     sessions = read_json_file(SESSIONS_FILE)
     
-    # Check if ID is already provided (sent from analyze result)
     if "id" not in session_data:
         session_data["id"] = f"session_{int(datetime.now().timestamp() * 1000)}"
     if "date" not in session_data:
         session_data["date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+    if "organization" not in session_data:
+        session_data["organization"] = x_user_organization or "SpectraOne Local"
     
-    sessions.insert(0, session_data) # Insert at beginning to show newest first
+    sessions.insert(0, session_data)
     write_json_file(SESSIONS_FILE, sessions)
     
     return session_data
@@ -395,18 +501,40 @@ def get_users():
     return read_json_file(USERS_FILE)
 
 @app.put("/api/users/{username}")
-def update_user_role(username: str, payload: dict = Body(...)):
-    """Update role for a specific user"""
-    new_role = payload.get("role")
-    if new_role not in ["Admin", "Auditor", "Viewer"]:
-        raise HTTPException(status_code=400, detail="Invalid role. Must be Admin, Auditor, or Viewer.")
-        
+def update_user(username: str, payload: dict = Body(...)):
+    """Update role, organization, allowed_modules, and password for a specific user"""
+    role = payload.get("role")
+    organization = payload.get("organization")
+    allowed_modules = payload.get("allowed_modules")
+    password = payload.get("password")
+    fullname = payload.get("fullname")
+    email = payload.get("email")
+    status = payload.get("status")
+    
     users = read_json_file(USERS_FILE)
     user_found = False
     
     for u in users:
         if u["username"] == username:
-            u["role"] = new_role
+            if role is not None:
+                if role not in ["Admin", "Auditor", "Viewer"]:
+                    raise HTTPException(status_code=400, detail="Invalid role. Must be Admin, Auditor, or Viewer.")
+                u["role"] = role
+            if organization is not None:
+                u["organization"] = organization
+            if allowed_modules is not None:
+                if not isinstance(allowed_modules, list):
+                    raise HTTPException(status_code=400, detail="allowed_modules must be a list")
+                u["allowed_modules"] = allowed_modules
+            if password:
+                u["password"] = hashlib.sha256(password.encode()).hexdigest()
+            if fullname is not None:
+                u["fullname"] = fullname
+            if email is not None:
+                u["email"] = email
+            if status is not None:
+                u["status"] = status
+                
             user_found = True
             break
             
@@ -414,7 +542,50 @@ def update_user_role(username: str, payload: dict = Body(...)):
         raise HTTPException(status_code=404, detail="User not found")
         
     write_json_file(USERS_FILE, users)
-    return {"status": "success", "username": username, "new_role": new_role}
+    return {"status": "success", "username": username}
+
+@app.post("/api/users")
+def create_user(payload: dict = Body(...)):
+    """Create a new user"""
+    username = payload.get("username")
+    fullname = payload.get("fullname", "")
+    email = payload.get("email", "")
+    role = payload.get("role", "Viewer")
+    organization = payload.get("organization", "SpectraOne Local")
+    allowed_modules = payload.get("allowed_modules", ["active_directory"])
+    password = payload.get("password", "password123")
+    
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+        
+    users = read_json_file(USERS_FILE)
+    if any(u["username"] == username for u in users):
+        raise HTTPException(status_code=400, detail="Username already exists")
+        
+    new_user = {
+        "username": username,
+        "fullname": fullname,
+        "email": email,
+        "role": role,
+        "organization": organization,
+        "allowed_modules": allowed_modules,
+        "status": "Active",
+        "password": hashlib.sha256(password.encode()).hexdigest()
+    }
+    users.append(new_user)
+    write_json_file(USERS_FILE, users)
+    return {"status": "success", "username": username}
+
+@app.delete("/api/users/{username}")
+def delete_user(username: str):
+    """Delete a user"""
+    users = read_json_file(USERS_FILE)
+    original_len = len(users)
+    users = [u for u in users if u["username"] != username]
+    if len(users) == original_len:
+        raise HTTPException(status_code=404, detail="User not found")
+    write_json_file(USERS_FILE, users)
+    return {"status": "success", "username": username}
 
 # Mount the static directory to serve frontend HTML/CSS/JS
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

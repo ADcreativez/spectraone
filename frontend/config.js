@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Check if the user is Admin
-    const currentRole = localStorage.getItem('manta_role') || 'Admin';
-    if (currentRole !== 'Admin') {
+    const loggedUserStr = localStorage.getItem('manta_user');
+    if (!loggedUserStr) {
+        window.location.href = '/login.html';
+        return;
+    }
+    const loggedUser = JSON.parse(loggedUserStr);
+    if (loggedUser.role !== 'Admin') {
         alert('Access Denied: Admin role required to access System Configuration.');
         window.location.href = '/';
         return;
@@ -14,6 +19,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Modal elements
+    const userModal = document.getElementById('user-modal');
+    const userModalTitle = document.getElementById('user-modal-title');
+    const userModalClose = document.getElementById('user-modal-close');
+    const btnCancelUser = document.getElementById('btn-cancel-user');
+    const btnCreateUser = document.getElementById('btn-create-user');
+    const formUser = document.getElementById('form-user');
+    
+    const inputMode = document.getElementById('edit-user-mode');
+    const inputUsername = document.getElementById('edit-username');
+    const inputFullname = document.getElementById('edit-fullname');
+    const inputEmail = document.getElementById('edit-email');
+    const inputOrganization = document.getElementById('edit-organization');
+    const inputPassword = document.getElementById('edit-password');
+    const labelPassword = document.getElementById('label-password');
+    const inputRole = document.getElementById('edit-role');
+    const moduleCheckboxes = document.querySelectorAll('.module-cb');
+
+    let allUsers = [];
+
     // Load users
     loadUsersConfig();
     
@@ -21,19 +46,23 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/users');
             if (!res.ok) throw new Error("Failed to fetch system users");
-            const users = await res.json();
+            allUsers = await res.json();
             
             const tbody = document.getElementById('table-users').querySelector('tbody');
             tbody.innerHTML = '';
             
-            users.forEach(user => {
+            allUsers.forEach(user => {
                 const tr = document.createElement('tr');
-                const isOnline = user.username === 'auditor1'; // simulate current user online
+                const isOnline = user.username === loggedUser.username;
+                
+                const modulesBadges = user.allowed_modules && user.allowed_modules.length > 0 
+                    ? user.allowed_modules.map(m => `<span class="module-hub-card-badge" style="font-size:10px; margin-right:4px;">${m}</span>`).join('')
+                    : '<span style="color:var(--text-muted); font-size:12px;">None</span>';
                 
                 tr.innerHTML = `
                     <td>
-                        <div class="status-light-container">
-                            <span class="status-light-dot ${isOnline ? 'online' : 'offline'}"></span>
+                        <div class="status-light-container" style="display:flex; align-items:center; gap:10px;">
+                            <span class="status-light-dot ${isOnline ? 'online' : 'offline'}" style="width:8px; height:8px; border-radius:50%; background:${isOnline ? 'var(--accent-green)' : 'var(--text-muted)'}; display:inline-block;"></span>
                             <div>
                                 <div style="font-weight:600;color:var(--text-primary);">${user.fullname}</div>
                                 <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Username: ${user.username}</div>
@@ -41,59 +70,182 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </td>
                     <td>${user.email}</td>
+                    <td style="font-weight:500;">${user.organization || 'SpectraOne Local'}</td>
                     <td>
-                        <select class="role-select" data-user="${user.username}" style="padding:4px 8px; border-radius:4px; background:rgba(255,255,255,0.05); color:white; border:1px solid rgba(255,255,255,0.1);">
-                            <option value="Admin" ${user.role === 'Admin' ? 'selected' : ''}>Admin</option>
-                            <option value="Auditor" ${user.role === 'Auditor' ? 'selected' : ''}>Auditor</option>
-                            <option value="Viewer" ${user.role === 'Viewer' ? 'selected' : ''}>Viewer</option>
-                        </select>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; max-width: 250px;">
+                            ${modulesBadges}
+                        </div>
                     </td>
                     <td>
-                        <span class="status-pill green">Active</span>
+                        <span class="status-pill" style="padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; background:rgba(99,102,241,0.15); color:var(--accent-indigo); border:1px solid rgba(99,102,241,0.25);">${user.role}</span>
                     </td>
                     <td>
-                        <button class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:11px;">
-                            <i class="fa-solid fa-user-pen"></i> Settings
-                        </button>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-secondary btn-sm btn-edit" data-user="${user.username}" style="padding:4px 8px;font-size:11px;">
+                                <i class="fa-solid fa-user-pen"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-delete" data-user="${user.username}" style="padding:4px 8px;font-size:11px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--color-high);border-radius:6px;cursor:pointer; display:${isOnline ? 'none' : 'block'};">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
                     </td>
                 `;
                 
-                // Add event listener to role select dropdown trigger PUT change
-                const selectEl = tr.querySelector('.role-select');
-                selectEl.addEventListener('change', async (e) => {
-                    const newRole = e.target.value;
-                    const username = selectEl.getAttribute('data-user');
-                    
-                    try {
-                        const putRes = await fetch(`/api/users/${username}/role`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ role: newRole })
-                        });
-                        
-                        if (!putRes.ok) throw new Error("Failed to change user role");
-                        
-                        showToast(`Role for ${username} updated to ${newRole}!`, "success");
-                    } catch (err) {
-                        console.error(err);
-                        showToast("Failed to update user role", "error");
-                        // Reset selection
-                        selectEl.value = user.role;
+                tbody.appendChild(tr);
+            });
+
+            // Bind edit button events
+            tbody.querySelectorAll('.btn-edit').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const username = btn.getAttribute('data-user');
+                    const user = allUsers.find(u => u.username === username);
+                    if (user) {
+                        openUserModal('edit', user);
                     }
                 });
-                
-                tbody.appendChild(tr);
+            });
+
+            // Bind delete button events
+            tbody.querySelectorAll('.btn-delete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const username = btn.getAttribute('data-user');
+                    const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus user "${username}"?`);
+                    if (!confirmed) return;
+
+                    try {
+                        const delRes = await fetch(`/api/users/${username}`, {
+                            method: 'DELETE'
+                        });
+                        if (!delRes.ok) throw new Error("Gagal menghapus user");
+                        showToast(`User ${username} berhasil dihapus!`, "success");
+                        loadUsersConfig();
+                    } catch (err) {
+                        showToast(err.message, "error");
+                    }
+                });
             });
             
         } catch (err) {
             console.error("Failed to load users list:", err);
             const tbody = document.getElementById('table-users').querySelector('tbody');
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 24px; color:var(--color-high);">Error loading users.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color:var(--color-high);">Error loading users.</td></tr>`;
             showToast("Failed to fetch system users.", "error");
         }
     }
+
+    // Modal Control Functions
+    function openUserModal(mode, user = null) {
+        inputMode.value = mode;
+        inputPassword.value = '';
+        
+        // Reset checkboxes
+        moduleCheckboxes.forEach(cb => cb.checked = false);
+
+        if (mode === 'create') {
+            userModalTitle.textContent = "Tambah User Baru";
+            inputUsername.value = '';
+            inputUsername.disabled = false;
+            inputFullname.value = '';
+            inputEmail.value = '';
+            inputOrganization.value = 'SpectraOne Local';
+            inputRole.value = 'Viewer';
+            inputPassword.required = true;
+            labelPassword.textContent = "Password";
+            inputPassword.placeholder = "Masukkan password";
+        } else if (mode === 'edit' && user) {
+            userModalTitle.textContent = `Edit User: ${user.username}`;
+            inputUsername.value = user.username;
+            inputUsername.disabled = true; // Cannot edit username
+            inputFullname.value = user.fullname;
+            inputEmail.value = user.email;
+            inputOrganization.value = user.organization || '';
+            inputRole.value = user.role;
+            inputPassword.required = false;
+            labelPassword.textContent = "Ganti Password (Opsional)";
+            inputPassword.placeholder = "Kosongkan jika tidak ingin diubah";
+
+            // Check checkboxes
+            if (user.allowed_modules) {
+                moduleCheckboxes.forEach(cb => {
+                    if (user.allowed_modules.includes(cb.value)) {
+                        cb.checked = true;
+                    }
+                });
+            }
+        }
+
+        userModal.style.display = 'flex';
+    }
+
+    function closeUserModal() {
+        userModal.style.display = 'none';
+    }
+
+    if (btnCreateUser) {
+        btnCreateUser.addEventListener('click', () => openUserModal('create'));
+    }
+
+    if (userModalClose) userModalClose.addEventListener('click', closeUserModal);
+    if (btnCancelUser) btnCancelUser.addEventListener('click', closeUserModal);
+    
+    // Close modal on backdrop click
+    userModal.addEventListener('click', (e) => {
+        if (e.target === userModal) closeUserModal();
+    });
+
+    // Form submit logic
+    formUser.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const mode = inputMode.value;
+        const username = inputUsername.value.trim();
+        
+        const allowed_modules = [];
+        moduleCheckboxes.forEach(cb => {
+            if (cb.checked) allowed_modules.push(cb.value);
+        });
+
+        const payload = {
+            fullname: inputFullname.value.trim(),
+            email: inputEmail.value.trim(),
+            organization: inputOrganization.value.trim(),
+            role: inputRole.value,
+            allowed_modules: allowed_modules
+        };
+
+        if (inputPassword.value) {
+            payload.password = inputPassword.value;
+        }
+
+        try {
+            let res;
+            if (mode === 'create') {
+                payload.username = username;
+                res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`/api/users/${username}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Gagal menyimpan user");
+            }
+
+            showToast(mode === 'create' ? "User baru berhasil dibuat!" : "User settings berhasil diperbarui!", "success");
+            closeUserModal();
+            loadUsersConfig();
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    });
 
     function showToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
