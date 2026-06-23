@@ -392,7 +392,6 @@ class ForescoutParser(BaseParser):
                         "status": "Online",
                         "coverage": "All Segments"
                     })
-                appliances = mapped_appliances
 
             # 3. Detect Forescout Version
             app_versions = set()
@@ -417,6 +416,39 @@ class ForescoutParser(BaseParser):
                 else:
                     passive_actions_count += count
 
+            # 5. Detect Forescout Product Modules
+            product_modules = ["Core Policy Engine"]
+            if "Active Directory" in detected_integrations:
+                product_modules.append("Active Directory Integration Plugin")
+            if "Fortinet FortiGate" in detected_integrations or "Palo Alto Networks" in detected_integrations:
+                product_modules.append("Next-Generation Firewall (NGFW) Integration Module")
+            
+            has_wifi = False
+            has_av = False
+            has_sc = False
+            for act_name in actions_dist.keys():
+                act_lower = act_name.lower()
+                if "wifi" in act_lower:
+                    has_wifi = True
+                if "av_" in act_lower or "antivirus" in act_lower:
+                    has_av = True
+                if "sc" in act_lower or "agent" in act_lower or "secureconnector" in act_lower:
+                    has_sc = True
+                    
+            for cond_name in conditions_dist.keys():
+                cond_lower = cond_name.lower()
+                if "secureconnector" in cond_lower:
+                    has_sc = True
+                if "antivirus" in cond_lower:
+                    has_av = True
+                    
+            if has_wifi:
+                product_modules.append("Wireless Integration Plugin")
+            if has_av:
+                product_modules.append("Endpoint Compliance (Antivirus) Module")
+            if has_sc:
+                product_modules.append("SecureConnector Agent Module")
+
             stats = {
                 "total_folders": len(self.folders),
                 "total_policies": len(self.policies),
@@ -437,6 +469,7 @@ class ForescoutParser(BaseParser):
                 "appliances": appliances,
                 "ha_active": ha_active,
                 "forescout_version": forescout_version,
+                "product_modules": product_modules,
                 "enforcement_stats": {
                     "active": active_actions_count,
                     "passive": passive_actions_count

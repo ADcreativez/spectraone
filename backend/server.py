@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 import os
@@ -470,6 +470,32 @@ def get_session_report(session_id: str):
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read report details: {str(e)}")
+
+from backend.reporter import generate_report_docx
+
+@app.get("/api/sessions/{session_id}/export/docx")
+def export_session_docx(session_id: str):
+    """Retrieve full analysis details and generate a DOCX download stream"""
+    report_data = get_session_report(session_id)
+    sessions = read_json_file(SESSIONS_FILE)
+    session = next((s for s in sessions if s["id"] == session_id), None)
+    if session:
+        report_data["filename"] = session.get("filename", "config_file")
+        
+    try:
+        docx_stream = generate_report_docx(report_data)
+        safe_filename = f"SpectraOne_Report_{session_id}.docx"
+        if session:
+            base_fn = os.path.splitext(session.get("filename", "report"))[0]
+            safe_filename = f"SpectraOne_Report_{base_fn}.docx"
+            
+        return StreamingResponse(
+            docx_stream,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename={safe_filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate Word report: {str(e)}")
 
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: str):

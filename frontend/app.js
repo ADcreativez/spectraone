@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initModalEvents();
     initNavigation();
     initAuditRefButton();
+    initDocxExportEvents();
     loadDashboardSessions(); // Preload dashboard logs
 
     // Navigation routing logic
@@ -96,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
             reportView.style.display = 'none';
             btnReset.style.display = 'none';
+            const btnExportDocx = document.getElementById('btn-export-docx');
+            if (btnExportDocx) btnExportDocx.style.display = 'none';
             if (btnAuditRef) btnAuditRef.style.display = 'none';
             uploadView.style.display = 'flex';
             
@@ -119,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadView.style.display = 'none';
         reportView.style.display = 'none';
         btnReset.style.display = 'none';
+        const btnExportDocx = document.getElementById('btn-export-docx');
+        if (btnExportDocx) btnExportDocx.style.display = 'none';
         if (btnAuditRef) btnAuditRef.style.display = 'none';
         
         const headerTitle = document.getElementById('current-brand-name');
@@ -149,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const brandShortName = activeBrandConfig.name.replace(' Analyzer', '');
                 btnReset.innerHTML = `<i class="fa-solid fa-arrow-rotate-left"></i> Analyze New ${brandShortName} File`;
                 btnReset.style.display = 'inline-flex';
+                if (btnExportDocx) btnExportDocx.style.display = 'inline-flex';
                 if (btnAuditRef) btnAuditRef.style.display = 'inline-flex';
                 updateStatusBadge(true, "Analysis Complete");
                 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -393,6 +399,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const brandShortName = brand.name.replace(' Analyzer', '');
             btnReset.innerHTML = `<i class="fa-solid fa-arrow-rotate-left"></i> Analyze New ${brandShortName} File`;
             btnReset.style.display = 'inline-flex';
+            const btnExportDocx = document.getElementById('btn-export-docx');
+            if (btnExportDocx) btnExportDocx.style.display = 'inline-flex';
             if (btnAuditRef) btnAuditRef.style.display = 'inline-flex';
             
             // Render Dashboard components
@@ -4961,6 +4969,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btnAuditRef) return;
         btnAuditRef.addEventListener('click', () => {
             showAuditReferenceModal();
+        });
+    }
+
+    function initDocxExportEvents() {
+        const btnExportDocx = document.getElementById('btn-export-docx');
+        if (btnExportDocx) {
+            btnExportDocx.addEventListener('click', () => {
+                if (analysisResult && analysisResult.session_id) {
+                    window.open(`/api/sessions/${analysisResult.session_id}/export/docx`, '_blank');
+                } else {
+                    showToast("No active session or report loaded to export.", "error");
+                }
+            });
+        }
+
+        // Delegate listener for compliance card export buttons
+        document.addEventListener('click', (e) => {
+            if (e.target && (e.target.classList.contains('btn-export-docx-compliance') || e.target.closest('.btn-export-docx-compliance'))) {
+                if (analysisResult && analysisResult.session_id) {
+                    window.open(`/api/sessions/${analysisResult.session_id}/export/docx`, '_blank');
+                } else {
+                    showToast("No active session or report loaded to export.", "error");
+                }
+            }
         });
     }
 
