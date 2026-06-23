@@ -81,7 +81,7 @@ if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt
 else
     echo -e "${YELLOW}[!] requirements.txt not found! Installing default dependencies...${NC}"
-    pip install fastapi uvicorn python-multipart
+    pip install fastapi uvicorn python-multipart python-docx
 fi
 
 # Optional Systemd service creation for Linux
