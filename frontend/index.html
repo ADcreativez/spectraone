@@ -120,8 +120,53 @@
             justify-content: center;
             width: 100%;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 32px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        /* Auto-fit responsive layout for smaller height/width laptop viewports */
+        @media (max-height: 900px) or (max-width: 1400px) {
+            .hub-page-container {
+                padding: 24px;
+            }
+            .hub-header {
+                margin-bottom: 24px;
+            }
+            .hub-welcome {
+                margin-bottom: 24px;
+            }
+            .hub-welcome h2 {
+                font-size: 24px;
+                margin-bottom: 8px;
+            }
+            .hub-welcome p {
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            .module-hub-grid {
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 16px;
+            }
+            .module-hub-card {
+                padding: 16px !important;
+                gap: 12px !important;
+            }
+            .module-hub-card-icon {
+                width: 40px !important;
+                height: 40px !important;
+                font-size: 20px !important;
+            }
+            .module-hub-card-content h3 {
+                font-size: 16px !important;
+                margin-bottom: 4px !important;
+            }
+            .module-hub-card-content p {
+                font-size: 12px !important;
+            }
+            footer {
+                padding-top: 24px !important;
+                margin-top: 24px !important;
+            }
         }
     </style>
 </head>
